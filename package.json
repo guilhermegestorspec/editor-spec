@@ -1,0 +1,22 @@
+{
+  "name": "editor-spec",
+  "private": true,
+  "description": "Editor de vídeo oficial da Spec: Remotion + HyperFrames + FFmpeg + Whisper + yt-dlp",
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/remotion/index.ts",
+    "render": "remotion render src/remotion/index.ts",
+    "hf": "hyperframes"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.541",
+    "hyperframes": "^0.9.19",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "^4.0.541"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.31",
+    "typescript": "^7.0.2"
+  }
+}

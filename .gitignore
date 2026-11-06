@@ -1,0 +1,17 @@
+node_modules/
+out/
+renders/
+referencias/
+*.mp4
+*.mov
+*.webm
+*.wav
+*.mp3
+*.m4a
+*.flac
+*.srt
+*.words.json
+cookies.txt
+.DS_Store
+__pycache__/
+hyperframes/*/.hyperframes/
