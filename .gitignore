@@ -15,3 +15,4 @@ cookies.txt
 .DS_Store
 __pycache__/
 hyperframes/*/.hyperframes/
+data/

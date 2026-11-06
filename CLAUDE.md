@@ -28,3 +28,12 @@ Leia a skill correspondente antes de montar um vídeo com Remotion ou HyperFrame
 - Remotion: defina `REMOTION_CHROME=/opt/pw-browsers/chromium` se o download do Chrome falhar.
 - YouTube/Instagram/TikTok bloqueiam IPs de nuvem no yt-dlp: use cookies do navegador ou rode localmente. Links diretos de arquivo funcionam.
 - Licença: Remotion é grátis para pessoa física e empresas de até 3 pessoas; acima disso exige licença paga (skill `remotion-license`).
+
+## Spec Studio (sistema web)
+Portal da equipe em `app/` (Node 22 + Express + SQLite embutido, sem build):
+- `npm start` → http://localhost:3000 (dados em `DATA_DIR`, padrão `./data`).
+- Login obrigatório; sem cadastro público. Admin inicial via `ADMIN_EMAIL`/`ADMIN_PASSWORD`. Domínio restrito opcional: `SPEC_EMAIL_DOMAIN`.
+- Por cliente: Brutos, Vídeos editados, Gráficos, Referências (upload ou link via yt-dlp), Criar peça (Remotion `Peca`), Assistente IA (Claude Agent SDK + skills; exige `ANTHROPIC_API_KEY`), Tarefas.
+- Aba "Usuários e acessos" (admin): criar, bloquear, trocar papel e senha.
+- Identidade visual Spec: #222222, #00F28A, branco, fonte Ubuntu; temas escuro/claro. Logos em `app/public/marca/`.
+- Deploy: `Dockerfile` + `render.yaml` (disco persistente em `/data`).

@@ -1,0 +1,11 @@
+node_modules
+data
+out
+referencias
+renders
+.git
+*.mp4
+*.mov
+*.wav
+*.flac
+*.srt

@@ -1,0 +1,22 @@
+# Deploy no Render (https://render.com): New + > Blueprint > escolha este repositório.
+services:
+  - type: web
+    name: spec-studio
+    runtime: docker
+    plan: standard          # 2 GB RAM: renders de vídeo precisam de memória
+    healthCheckPath: /healthz
+    disk:
+      name: dados
+      mountPath: /data      # banco, clientes e arquivos ficam aqui (persistente)
+      sizeGB: 50
+    envVars:
+      - key: ADMIN_EMAIL
+        sync: false         # e-mail do primeiro administrador
+      - key: ADMIN_PASSWORD
+        sync: false         # senha inicial do administrador (troque depois em "Minha conta")
+      - key: SPEC_EMAIL_DOMAIN
+        sync: false         # opcional: só aceita usuários com este domínio (ex.: specmarketing.com.br)
+      - key: ANTHROPIC_API_KEY
+        sync: false         # opcional: ativa o Assistente IA com as skills
+      - key: UPLOAD_MAX_MB
+        value: "4096"
