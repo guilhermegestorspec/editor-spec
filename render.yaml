@@ -17,7 +17,7 @@ services:
       - key: GOOGLE_SERVICE_ACCOUNT_JSON
         sync: false         # conteúdo do arquivo .json da chave da conta de serviço
       - key: SPEC_EMAIL_DOMAIN
-        value: specmarketingdigital.com
+        sync: false         # opcional: só aceita e-mails deste domínio (deixe vazio para aceitar qualquer e-mail)
       - key: ANTHROPIC_API_KEY
         sync: false         # opcional: ativa o Assistente IA com as skills
       - key: UPLOAD_MAX_MB
