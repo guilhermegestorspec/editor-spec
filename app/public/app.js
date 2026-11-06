@@ -94,7 +94,7 @@ const PASTAS = [
   { id: "graficos", nome: "Materiais gráficos", desc: "Posts, stories, thumbnails e banners." },
   { id: "referencias", nome: "Referências", desc: "Opcional: vídeos e imagens de inspiração (upload ou link)." },
 ];
-const NOME_TAREFA = { cortar: "Corte", exportar: "Exportação", legendar: "Legendas", baixar: "Download", grafico: "Peça gráfica", ia: "Assistente IA" };
+const NOME_TAREFA = { cortar: "Corte", exportar: "Exportação", legendar: "Legendas", baixar: "Importação", grafico: "Peça gráfica", ia: "Assistente IA" };
 const STATUS = { na_fila: "Na fila", rodando: "Processando", ok: "Concluída", erro: "Erro" };
 
 // ---------- tema ----------
@@ -338,7 +338,7 @@ function abaPasta(alvo, c, pasta, arquivos) {
         ${ic.upload.replace("<svg", '<svg width="22" height="22"')}
         <span>Arraste arquivos aqui ou</span>
         <label class="btn primario" style="display:inline-flex">Escolher arquivos<input type="file" multiple hidden id="inp"></label>
-        ${pasta === "referencias" ? `<button class="btn" id="por-link">${ic.link} Baixar por link</button>` : ""}
+        <button class="btn" id="por-link">${ic.link} Importar por link</button>
       </div>
       <div class="progresso" id="prog" hidden><div></div></div>
       ${
@@ -386,15 +386,20 @@ function abaPasta(alvo, c, pasta, arquivos) {
   if (porLink)
     porLink.onclick = () => {
       const d = modal(
-        "Baixar referência por link",
-        `<form class="grid-form" id="f"><label class="cheia">Link do vídeo (YouTube, Instagram, TikTok, Vimeo, link direto…)
-          <input name="url" type="url" required placeholder="https://"></label>
-          <p class="muted small cheia">Algumas redes bloqueiam downloads de servidores; nesse caso, envie o arquivo manualmente.</p>
-          <div class="acoes cheia"><button class="btn primario">Baixar</button></div></form>`
+        `Importar para ${info.nome}`,
+        `<form class="grid-form" id="f"><label class="cheia">Link
+          <input name="url" type="url" required placeholder="https://drive.google.com/…"></label>
+          <div class="cheia small muted" style="display:grid;gap:6px">
+            <p><b style="color:var(--text)">Google Drive:</b> link de um arquivo ou de uma pasta inteira (subpastas incluídas).
+              No Drive, o compartilhamento precisa estar em <b>“Qualquer pessoa com o link”</b>.</p>
+            <p><b style="color:var(--text)">Vídeos:</b> YouTube, Instagram, TikTok, Vimeo ou link direto. Algumas redes bloqueiam
+              downloads de servidores; nesse caso, envie o arquivo manualmente.</p>
+          </div>
+          <div class="acoes cheia"><button class="btn primario">Importar</button></div></form>`
       );
       d.querySelector("form").onsubmit = async (e) => {
         e.preventDefault();
-        await criarTarefa(c.id, "baixar", { url: new FormData(e.target).get("url") }, d);
+        await criarTarefa(c.id, "baixar", { url: new FormData(e.target).get("url"), pasta }, d);
       };
     };
   alvo.querySelectorAll("[data-arquivo]").forEach((card) => {

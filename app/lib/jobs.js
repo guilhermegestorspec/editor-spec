@@ -65,6 +65,7 @@ export function validarParams(tipo, p, clienteId) {
     if (tipo === "baixar") {
       const u = new URL(p.url);
       if (!["http:", "https:"].includes(u.protocol)) return "URL inválida.";
+      if (p.pasta && !["brutos", "editados", "graficos", "referencias"].includes(p.pasta)) return "Pasta inválida.";
     }
     if (tipo === "grafico") {
       if (!FORMATOS_GRAFICO[p.formato]) return "Formato inválido.";
@@ -171,6 +172,41 @@ async function salvar(ctx, arquivoTemp, pasta, nome, origem) {
 const base = (nome) => path.basename(nome, path.extname(nome));
 const H264 = ["-c:v", "libx264", "-crf", "18", "-preset", "medium", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart"];
 
+// ---------- links públicos do Google Drive (arquivo ou pasta) ----------
+export const ehLinkDrive = (url) => /^https:\/\/(drive|docs)\.google\.com\//i.test(url) || /^https:\/\/drive\.usercontent\.google\.com\//i.test(url);
+
+function listarArquivos(dir, prefixo = "") {
+  const out = [];
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const abs = path.join(dir, e.name);
+    if (e.isDirectory()) out.push(...listarArquivos(abs, `${prefixo}${e.name} - `));
+    else if (e.isFile()) out.push({ abs, nome: prefixo + e.name });
+  }
+  return out;
+}
+
+async function importarDoDrive(ctx, url, pasta) {
+  const destino = path.join(ctx.dir, "drive");
+  fs.mkdirSync(destino);
+  const pastaDrive = /\/folders\//.test(url);
+  ctx.log(`Importando ${pastaDrive ? "pasta" : "arquivo"} público do Google Drive…\n`);
+  const args = ["-m", "gdown", "-q", "--no-cookies", "--retries", "3", url, "-O", destino + "/"];
+  if (pastaDrive) args.splice(3, 0, "--folder");
+  try {
+    await executar(ctx, PY, args);
+  } catch (e) {
+    ctx.log(
+      "\nNão foi possível baixar. Confira se o link está como \"Qualquer pessoa com o link\" no Drive. " +
+        "Arquivos muito acessados podem atingir o limite de downloads do Google; tente de novo mais tarde.\n"
+    );
+    if (!listarArquivos(destino).length) throw e;
+  }
+  const arquivos = listarArquivos(destino);
+  for (const { abs, nome } of arquivos) await salvar(ctx, abs, pasta, nome, "Google Drive (link)");
+  if (!arquivos.length) throw new Error("Nenhum arquivo encontrado no link do Drive.");
+  ctx.log(`\n${arquivos.length} arquivo(s) importado(s).\n`);
+}
+
 const EXECUTORES = {
   async cortar(ctx) {
     const { arquivo_id, inicio, fim } = ctx.params;
@@ -212,13 +248,14 @@ const EXECUTORES = {
   },
 
   async baixar(ctx) {
-    const { url } = ctx.params;
+    const { url, pasta = "referencias" } = ctx.params;
+    if (ehLinkDrive(url)) return importarDoDrive(ctx, url, pasta);
     const args = ["--js-runtimes", "node", "--no-playlist", "-f", "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b", "--merge-output-format", "mp4", "-o", "%(title).90s [%(id)s].%(ext)s"];
     const cookies = path.join(DATA_DIR, "cookies.txt");
     if (fs.existsSync(cookies)) args.push("--cookies", cookies);
     await executar(ctx, "yt-dlp", [...args, url]);
     for (const f of fs.readdirSync(ctx.dir)) {
-      if (tipoDoArquivo(f) !== "outro") await salvar(ctx, path.join(ctx.dir, f), "referencias", f, url);
+      if (tipoDoArquivo(f) !== "outro") await salvar(ctx, path.join(ctx.dir, f), pasta, f, url);
     }
     if (!ctx.saidas.length) throw new Error("Nenhum vídeo foi baixado.");
   },

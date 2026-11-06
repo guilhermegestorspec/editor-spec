@@ -33,7 +33,7 @@ Leia a skill correspondente antes de montar um vídeo com Remotion ou HyperFrame
 Portal da equipe em `app/` (Node 22 + Express + SQLite embutido, sem build):
 - `npm start` → http://localhost:3000 (dados em `DATA_DIR`, padrão `./data`).
 - Login obrigatório; sem cadastro público. Admin inicial via `ADMIN_EMAIL`/`ADMIN_PASSWORD`. Domínio restrito opcional: `SPEC_EMAIL_DOMAIN`.
-- Por cliente: Brutos, Vídeos editados, Gráficos, Referências (upload ou link via yt-dlp), Criar peça (Remotion `Peca`), Assistente IA (Claude Agent SDK + skills; exige `ANTHROPIC_API_KEY`), Tarefas.
+- Por cliente: Brutos, Vídeos editados, Gráficos, Referências (upload, link público do Google Drive via gdown, ou vídeo via yt-dlp — "Importar por link" em todas as pastas), Criar peça (Remotion `Peca`), Assistente IA (Claude Agent SDK + skills; exige `ANTHROPIC_API_KEY`), Tarefas.
 - Aba "Usuários e acessos" (admin): criar, bloquear, trocar papel e senha.
 - Identidade visual Spec: #222222, #00F28A, branco, fonte Ubuntu; temas escuro/claro. Logos em `app/public/marca/`.
 - Armazenamento: disco local por padrão; com `DRIVE_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON` usa o Drive compartilhado da Spec
