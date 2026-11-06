@@ -2,9 +2,10 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { db, DATA_DIR, ROOT, clienteDir } from "./db.js";
+import { db, DATA_DIR, ROOT } from "./db.js";
 import { FORMATOS_VIDEO, FORMATOS_GRAFICO, MODELOS_WHISPER } from "./presets.js";
 import { rodarAgente } from "./agent.js";
+import * as storage from "./storage.js";
 
 const PY = process.env.PYTHON || "python3";
 const BIN = path.join(ROOT, "node_modules", ".bin");
@@ -27,40 +28,18 @@ export function tipoDoArquivo(nome) {
 
 export function nomeSeguro(nome) {
   const base = path.basename(String(nome)).normalize("NFKD").replace(/[̀-ͯ]/g, "");
-  return base.replace(/[^\w.\- ]+/g, "_").replace(/\s+/g, " ").trim().slice(0, 150) || "arquivo";
+  return base.replace(/[^\w.\-() ]+/g, "_").replace(/\s+/g, " ").trim().slice(0, 150) || "arquivo";
 }
 
-function nomeUnico(dir, nome) {
-  const ext = path.extname(nome);
-  const base = path.basename(nome, ext);
-  let cand = nome;
-  for (let i = 2; fs.existsSync(path.join(dir, cand)); i++) cand = `${base} (${i})${ext}`;
-  return cand;
-}
-
-export function registrarArquivo({ clienteId, pasta, origemPath, nome, origem, userId }) {
-  const dir = clienteDir(clienteId, pasta);
-  const final = nomeUnico(dir, nomeSeguro(nome || path.basename(origemPath)));
-  const destino = path.join(dir, final);
-  try {
-    fs.renameSync(origemPath, destino);
-  } catch {
-    fs.copyFileSync(origemPath, destino);
-    fs.rmSync(origemPath, { force: true });
-  }
-  const tamanho = fs.statSync(destino).size;
+export async function registrarArquivo({ clienteId, pasta, origemPath, nome, origem, userId }) {
+  const final = storage.nomeLivreLocal(clienteId, pasta, nomeSeguro(nome || path.basename(origemPath)));
+  const { caminho, drive_id, tamanho } = await storage.guardar({ clienteId, pasta, origemPath, nome: final });
   const r = db
     .prepare(
-      "INSERT INTO arquivos (cliente_id, pasta, nome, caminho, tipo, tamanho, origem, criado_por) VALUES (?,?,?,?,?,?,?,?)"
+      "INSERT INTO arquivos (cliente_id, pasta, nome, caminho, drive_id, tipo, tamanho, origem, criado_por) VALUES (?,?,?,?,?,?,?,?,?)"
     )
-    .run(clienteId, pasta, final, path.relative(DATA_DIR, destino), tipoDoArquivo(final), tamanho, origem || null, userId || null);
+    .run(clienteId, pasta, final, caminho, drive_id, tipoDoArquivo(final), tamanho, origem || null, userId || null);
   return Number(r.lastInsertRowid);
-}
-
-export function caminhoAbsoluto(arquivo) {
-  const abs = path.resolve(DATA_DIR, arquivo.caminho);
-  if (!abs.startsWith(DATA_DIR + path.sep)) throw new Error("caminho inválido");
-  return abs;
 }
 
 function pegarArquivo(id, clienteId) {
@@ -175,8 +154,9 @@ function executar(ctx, cmd, args, opts = {}) {
   });
 }
 
-function salvar(ctx, arquivoTemp, pasta, nome, origem) {
-  const id = registrarArquivo({
+async function salvar(ctx, arquivoTemp, pasta, nome, origem) {
+  ctx.log(`\n↑ guardando "${nome}" em ${storage.NOME_PASTA[pasta]}${storage.modo === "drive" ? " (Google Drive)" : ""}\n`);
+  const id = await registrarArquivo({
     clienteId: ctx.clienteId,
     pasta,
     origemPath: arquivoTemp,
@@ -196,8 +176,8 @@ const EXECUTORES = {
     const { arquivo_id, inicio, fim } = ctx.params;
     const a = pegarArquivo(arquivo_id, ctx.clienteId);
     const out = path.join(ctx.dir, "corte.mp4");
-    await executar(ctx, "ffmpeg", ["-y", "-ss", inicio, "-to", fim, "-i", caminhoAbsoluto(a), ...H264, out]);
-    salvar(ctx, out, "editados", `${base(a.nome)} - corte ${inicio.replace(/:/g, "")}-${fim.replace(/:/g, "")}.mp4`, `corte de #${a.id}`);
+    await executar(ctx, "ffmpeg", ["-y", "-ss", inicio, "-to", fim, "-i", (await storage.paraLocal(a, ctx.dir)), ...H264, out]);
+    await salvar(ctx, out, "editados", `${base(a.nome)} - corte ${inicio.replace(/:/g, "")}-${fim.replace(/:/g, "")}.mp4`, `corte de #${a.id}`);
   },
 
   async exportar(ctx) {
@@ -211,8 +191,8 @@ const EXECUTORES = {
           `[0:v]scale=${w}:${h}:force_original_aspect_ratio=decrease[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2,setsar=1[v]`;
     const out = path.join(ctx.dir, "export.mp4");
     const audio = normalizar ? ["-af", "loudnorm=I=-14:TP=-1:LRA=11", "-ar", "48000"] : [];
-    await executar(ctx, "ffmpeg", ["-y", "-i", caminhoAbsoluto(a), "-filter_complex", vf, "-map", "[v]", "-map", "0:a?", "-r", "30", ...audio, ...H264, out]);
-    salvar(ctx, out, "editados", `${base(a.nome)} - ${formato} ${w}x${h}.mp4`, `${nome} de #${a.id}`);
+    await executar(ctx, "ffmpeg", ["-y", "-i", (await storage.paraLocal(a, ctx.dir)), "-filter_complex", vf, "-map", "[v]", "-map", "0:a?", "-r", "30", ...audio, ...H264, out]);
+    await salvar(ctx, out, "editados", `${base(a.nome)} - ${formato} ${w}x${h}.mp4`, `${nome} de #${a.id}`);
   },
 
   async legendar(ctx) {
@@ -220,15 +200,15 @@ const EXECUTORES = {
     const a = pegarArquivo(arquivo_id, ctx.clienteId);
     const ext = path.extname(a.nome) || ".mp4";
     const src = path.join(ctx.dir, "fonte" + ext);
-    fs.symlinkSync(caminhoAbsoluto(a), src);
+    fs.symlinkSync((await storage.paraLocal(a, ctx.dir)), src);
     await executar(ctx, PY, [path.join(ROOT, "scripts", "legendar.py"), src, "--modelo", modelo, "--idioma", idioma]);
     if (queimar && a.tipo === "video") {
       const style = "FontName=Arial,FontSize=14,Bold=1,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,Outline=2,Alignment=2,MarginV=60";
       await executar(ctx, "ffmpeg", ["-y", "-i", src, "-vf", `subtitles=fonte.srt:force_style='${style}'`, ...H264, "legendado.mp4"]);
-      salvar(ctx, path.join(ctx.dir, "legendado.mp4"), "editados", `${base(a.nome)} - legendado.mp4`, `legenda de #${a.id}`);
+      await salvar(ctx, path.join(ctx.dir, "legendado.mp4"), "editados", `${base(a.nome)} - legendado.mp4`, `legenda de #${a.id}`);
     }
-    salvar(ctx, path.join(ctx.dir, "fonte.srt"), "editados", `${base(a.nome)}.srt`, `legenda de #${a.id}`);
-    salvar(ctx, path.join(ctx.dir, "fonte.words.json"), "editados", `${base(a.nome)}.palavras.json`, `legenda de #${a.id}`);
+    await salvar(ctx, path.join(ctx.dir, "fonte.srt"), "editados", `${base(a.nome)}.srt`, `legenda de #${a.id}`);
+    await salvar(ctx, path.join(ctx.dir, "fonte.words.json"), "editados", `${base(a.nome)}.palavras.json`, `legenda de #${a.id}`);
   },
 
   async baixar(ctx) {
@@ -238,7 +218,7 @@ const EXECUTORES = {
     if (fs.existsSync(cookies)) args.push("--cookies", cookies);
     await executar(ctx, "yt-dlp", [...args, url]);
     for (const f of fs.readdirSync(ctx.dir)) {
-      if (tipoDoArquivo(f) !== "outro") salvar(ctx, path.join(ctx.dir, f), "referencias", f, url);
+      if (tipoDoArquivo(f) !== "outro") await salvar(ctx, path.join(ctx.dir, f), "referencias", f, url);
     }
     if (!ctx.saidas.length) throw new Error("Nenhum vídeo foi baixado.");
   },
@@ -251,7 +231,7 @@ const EXECUTORES = {
     if (p.imagem_id) {
       const a = pegarArquivo(p.imagem_id, ctx.clienteId);
       imagem = "fundo" + path.extname(a.nome).toLowerCase();
-      fs.copyFileSync(caminhoAbsoluto(a), path.join(ctx.dir, imagem));
+      fs.copyFileSync((await storage.paraLocal(a, ctx.dir)), path.join(ctx.dir, imagem));
     }
     const props = {
       largura: w,
@@ -274,11 +254,11 @@ const EXECUTORES = {
     if (p.animado) {
       const out = path.join(ctx.dir, "peca.mp4");
       await executar(ctx, path.join(BIN, "remotion"), ["render", ...comum, out], { cwd: ROOT, env });
-      salvar(ctx, out, "editados", `${titulo} - ${p.formato} animado.mp4`, "anúncio animado (Remotion)");
+      await salvar(ctx, out, "editados", `${titulo} - ${p.formato} animado.mp4`, "anúncio animado (Remotion)");
     } else {
       const out = path.join(ctx.dir, "peca.png");
       await executar(ctx, path.join(BIN, "remotion"), ["still", ...comum, out, "--frame=60"], { cwd: ROOT, env });
-      salvar(ctx, out, "graficos", `${titulo} - ${p.formato}.png`, "peça gráfica (Remotion)");
+      await salvar(ctx, out, "graficos", `${titulo} - ${p.formato}.png`, "peça gráfica (Remotion)");
     }
   },
 
@@ -293,7 +273,7 @@ const EXECUTORES = {
     for (const id of arquivo_ids) {
       const a = pegarArquivo(id, ctx.clienteId);
       const destino = path.join(entrada, `${a.pasta}-${a.id}-${a.nome}`);
-      fs.symlinkSync(caminhoAbsoluto(a), destino);
+      fs.symlinkSync((await storage.paraLocal(a, ctx.dir)), destino);
       listados.push(path.basename(destino));
     }
     await rodarAgente({ ctx, cliente: c, pedido, entrada, saida, listados });
@@ -301,7 +281,7 @@ const EXECUTORES = {
       const abs = path.join(saida, f);
       if (!fs.statSync(abs).isFile()) continue;
       const pasta = tipoDoArquivo(f) === "imagem" ? "graficos" : "editados";
-      salvar(ctx, abs, pasta, f, "assistente IA");
+      await salvar(ctx, abs, pasta, f, "assistente IA");
     }
     if (!ctx.saidas.length) ctx.log("\n(o assistente não gerou arquivos em saida/)\n");
   },

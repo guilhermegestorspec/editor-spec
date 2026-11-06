@@ -8,7 +8,9 @@ import {
   COOKIE, hashSenha, conferirSenha, validarSenha, dominioPermitido, criarSessao,
   exigirLogin, exigirAdmin, garantirAdmin, podeTentarLogin, registrarFalha, limparFalhas,
 } from "./lib/auth.js";
-import { enfileirar, validarParams, registrarArquivo, caminhoAbsoluto, retomarFila } from "./lib/jobs.js";
+import { enfileirar, validarParams, registrarArquivo, nomeSeguro, retomarFila } from "./lib/jobs.js";
+import * as storage from "./lib/storage.js";
+import { agendarBackups } from "./lib/backup.js";
 import { FORMATOS_VIDEO, FORMATOS_GRAFICO, MODELOS_WHISPER } from "./lib/presets.js";
 
 const app = express();
@@ -178,14 +180,15 @@ app.patch("/api/clientes/:id", exigirLogin, (req, res) => {
   if (!c.nome) return erro(res, 400, "Nome obrigatório.");
   db.prepare("UPDATE clientes SET nome=?, nicho=?, cor_primaria=?, cor_secundaria=?, cor_fundo=?, fonte=?, observacoes=? WHERE id=?")
     .run(c.nome, c.nicho, c.cor_primaria, c.cor_secundaria, c.cor_fundo, c.fonte, c.observacoes, atual.id);
+  if (c.nome !== atual.nome) storage.renomearCliente(atual.id).catch((e) => console.error("[drive] renomear pasta:", e.message));
   res.json(db.prepare("SELECT * FROM clientes WHERE id = ?").get(atual.id));
 });
 
-app.delete("/api/clientes/:id", exigirLogin, exigirAdmin, (req, res) => {
+app.delete("/api/clientes/:id", exigirLogin, exigirAdmin, async (req, res) => {
   const c = db.prepare("SELECT * FROM clientes WHERE id = ?").get(id(req.params.id));
   if (!c) return erro(res, 404, "Cliente não encontrado.");
+  await storage.removerCliente(c.id); // no Drive vai para a lixeira (recuperável por 30 dias)
   db.prepare("DELETE FROM clientes WHERE id = ?").run(c.id);
-  fs.rmSync(path.join(DATA_DIR, "clientes", String(c.id)), { recursive: true, force: true });
   res.json({ ok: true });
 });
 
@@ -211,7 +214,7 @@ app.get("/api/clientes/:id/arquivos", exigirLogin, (req, res) => {
   res.json(pasta ? db.prepare(sql).all(c.id, pasta) : db.prepare(sql).all(c.id));
 });
 
-app.post("/api/clientes/:id/arquivos", exigirLogin, upload.array("arquivos"), (req, res) => {
+app.post("/api/clientes/:id/arquivos", exigirLogin, upload.array("arquivos"), async (req, res) => {
   const limpar = () => (req.files || []).forEach((f) => fs.rmSync(f.path, { force: true }));
   const c = clienteOu404(req, res);
   if (!c) return limpar();
@@ -220,16 +223,25 @@ app.post("/api/clientes/:id/arquivos", exigirLogin, upload.array("arquivos"), (r
     limpar();
     return erro(res, 400, "Pasta inválida.");
   }
-  const ids = (req.files || []).map((f) =>
-    registrarArquivo({
-      clienteId: c.id,
-      pasta,
-      origemPath: f.path,
-      nome: Buffer.from(f.originalname, "latin1").toString("utf8"),
-      origem: "upload",
-      userId: req.user.id,
-    })
-  );
+  const ids = [];
+  try {
+    for (const f of req.files || []) {
+      ids.push(
+        await registrarArquivo({
+          clienteId: c.id,
+          pasta,
+          origemPath: f.path,
+          nome: Buffer.from(f.originalname, "latin1").toString("utf8"),
+          origem: "upload",
+          userId: req.user.id,
+        })
+      );
+    }
+  } catch (e) {
+    limpar();
+    console.error("[upload]", e.message);
+    return erro(res, 502, `Falha ao guardar o arquivo: ${e.message}`);
+  }
   res.json({ ids });
 });
 
@@ -239,36 +251,34 @@ function arquivoOu404(req, res) {
   return a;
 }
 
-app.get("/api/arquivos/:id/conteudo", exigirLogin, (req, res) => {
+app.get("/api/arquivos/:id/conteudo", exigirLogin, async (req, res) => {
   const a = arquivoOu404(req, res);
   if (!a) return;
-  const abs = caminhoAbsoluto(a);
-  if (!fs.existsSync(abs)) return erro(res, 404, "Arquivo ausente no disco.");
   // Só mídia comum abre no navegador; o resto (html, svg, js...) sempre baixa, e sem executar nada.
   const seguro = ["video", "audio"].includes(a.tipo) || (a.tipo === "imagem" && !/\.svg$/i.test(a.nome));
   if (req.query.baixar || !seguro) res.attachment(a.nome);
-  res.sendFile(abs, {
-    headers: {
-      "Cache-Control": "private, max-age=3600",
-      "Content-Security-Policy": "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'; sandbox",
-    },
+  else res.type(storage.mimeDe(a.nome));
+  await storage.servir(a, req, res, {
+    "Cache-Control": "private, max-age=3600",
+    "Content-Security-Policy": "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'; sandbox",
   });
 });
 
-app.patch("/api/arquivos/:id", exigirLogin, (req, res) => {
+app.patch("/api/arquivos/:id", exigirLogin, async (req, res) => {
   const a = arquivoOu404(req, res);
   if (!a) return;
   const pasta = req.body.pasta;
   if (!PASTAS.includes(pasta) || pasta === a.pasta) return erro(res, 400, "Pasta inválida.");
-  const novoId = registrarArquivo({ clienteId: a.cliente_id, pasta, origemPath: caminhoAbsoluto(a), nome: a.nome, origem: a.origem, userId: a.criado_por });
-  db.prepare("DELETE FROM arquivos WHERE id = ?").run(a.id);
-  res.json({ id: novoId });
+  const nome = storage.nomeLivreLocal(a.cliente_id, pasta, nomeSeguro(a.nome));
+  const { caminho } = await storage.moverPasta(a, pasta, nome);
+  db.prepare("UPDATE arquivos SET pasta = ?, nome = ?, caminho = ? WHERE id = ?").run(pasta, nome, caminho, a.id);
+  res.json({ id: a.id });
 });
 
-app.delete("/api/arquivos/:id", exigirLogin, (req, res) => {
+app.delete("/api/arquivos/:id", exigirLogin, async (req, res) => {
   const a = arquivoOu404(req, res);
   if (!a) return;
-  fs.rmSync(caminhoAbsoluto(a), { force: true });
+  await storage.remover(a);
   db.prepare("DELETE FROM arquivos WHERE id = ?").run(a.id);
   res.json({ ok: true });
 });
@@ -307,5 +317,13 @@ app.use((err, req, res, next) => {
 });
 
 garantirAdmin();
+try {
+  console.log(await storage.verificar());
+} catch (e) {
+  console.error("Falha ao preparar o Google Drive:", e.message);
+  process.exit(1);
+}
+agendarBackups({ db, dataDir: DATA_DIR, pastaSistema: storage.pastaSistema });
 retomarFila();
-app.listen(PORT, () => console.log(`Spec Studio rodando em http://localhost:${PORT}`));
+const servidor = app.listen(PORT, () => console.log(`Spec Studio rodando em http://localhost:${PORT}`));
+servidor.requestTimeout = 0; // uploads de vídeos grandes podem levar mais de 5 minutos

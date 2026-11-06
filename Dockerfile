@@ -34,4 +34,4 @@ ENV NODE_ENV=production PORT=3000 DATA_DIR=/data
 VOLUME ["/data"]
 EXPOSE 3000
 HEALTHCHECK CMD curl -fsS http://localhost:3000/healthz || exit 1
-CMD ["node", "--disable-warning=ExperimentalWarning", "app/server.js"]
+CMD ["node", "--disable-warning=ExperimentalWarning", "app/start.js"]

@@ -54,6 +54,11 @@ CREATE TABLE IF NOT EXISTS arquivos (
   criado_em TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS drive_pastas (
+  chave TEXT PRIMARY KEY,
+  drive_id TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS tarefas (
   id INTEGER PRIMARY KEY,
   cliente_id INTEGER REFERENCES clientes(id) ON DELETE CASCADE,
@@ -67,6 +72,10 @@ CREATE TABLE IF NOT EXISTS tarefas (
   terminado_em TEXT
 );
 `);
+
+// Migrações simples
+const colunas = db.prepare("PRAGMA table_info(arquivos)").all().map((c) => c.name);
+if (!colunas.includes("drive_id")) db.exec("ALTER TABLE arquivos ADD COLUMN drive_id TEXT");
 
 // Tarefas que estavam rodando quando o servidor caiu não vão terminar.
 db.prepare("UPDATE tarefas SET status='erro', log=log||'\n[servidor reiniciado durante a tarefa]' WHERE status IN ('rodando')").run();

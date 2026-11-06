@@ -36,4 +36,8 @@ Portal da equipe em `app/` (Node 22 + Express + SQLite embutido, sem build):
 - Por cliente: Brutos, Vídeos editados, Gráficos, Referências (upload ou link via yt-dlp), Criar peça (Remotion `Peca`), Assistente IA (Claude Agent SDK + skills; exige `ANTHROPIC_API_KEY`), Tarefas.
 - Aba "Usuários e acessos" (admin): criar, bloquear, trocar papel e senha.
 - Identidade visual Spec: #222222, #00F28A, branco, fonte Ubuntu; temas escuro/claro. Logos em `app/public/marca/`.
-- Deploy: `Dockerfile` + `render.yaml` (disco persistente em `/data`).
+- Armazenamento: disco local por padrão; com `DRIVE_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON` usa o Drive compartilhado da Spec
+  (`Spec Studio/Clientes/<Cliente>/{Brutos, Vídeos editados, Gráficos, Referências}`) e faz backup/restauração do banco em `_sistema/`.
+  Guia: `docs/GOOGLE-DRIVE.md`. Código: `app/lib/drive.js` (REST + upload retomável), `app/lib/storage.js`, `app/lib/backup.js`.
+- Entrada: `app/start.js` (restaura o banco do Drive, depois sobe `app/server.js`).
+- Deploy: `Dockerfile` + `render.yaml` (sem disco; dados no Drive).
