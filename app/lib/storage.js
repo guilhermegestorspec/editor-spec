@@ -144,3 +144,85 @@ export async function verificar() {
   await pastaClientes();
   return `Armazenamento: Google Drive compartilhado ${drive.DRIVE_ID} (pasta "${RAIZ_NOME}" ${raiz})`;
 }
+
+// ---------- envio para o Drive em segundo plano ----------
+// O upload do navegador termina assim que o servidor recebe o arquivo; a ida ao Drive acontece depois,
+// sem prender a pessoa na tela. Enquanto isso o arquivo é servido do disco temporário.
+const PENDENTES = path.join(DATA_DIR, "pendentes");
+const SIMULTANEOS = Number(process.env.DRIVE_ENVIOS_SIMULTANEOS || 2);
+const filaEnvio = [];
+const tentativas = new Map();
+let enviandoAgora = 0;
+
+export function usarEnvioAdiado() {
+  return modo === "drive";
+}
+
+export function guardarPendente({ origemPath, nome }) {
+  fs.mkdirSync(PENDENTES, { recursive: true });
+  const destino = path.join(PENDENTES, `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${nome}`);
+  try {
+    fs.renameSync(origemPath, destino);
+  } catch {
+    fs.copyFileSync(origemPath, destino);
+    fs.rmSync(origemPath, { force: true });
+  }
+  return { caminho: path.relative(DATA_DIR, destino), tamanho: fs.statSync(destino).size };
+}
+
+export function agendarEnvioDrive(id) {
+  if (!filaEnvio.includes(id)) filaEnvio.push(id);
+  setImmediate(processarEnvios);
+}
+
+function processarEnvios() {
+  while (enviandoAgora < SIMULTANEOS && filaEnvio.length) {
+    const id = filaEnvio.shift();
+    enviandoAgora++;
+    enviarUm(id).finally(() => {
+      enviandoAgora--;
+      setImmediate(processarEnvios);
+    });
+  }
+}
+
+async function enviarUm(id) {
+  const a = db.prepare("SELECT * FROM arquivos WHERE id = ?").get(id);
+  if (!a || a.status === "ok" || a.drive_id) return;
+  const abs = caminhoLocal(a);
+  try {
+    const r = await drive.enviar(abs, { nome: a.nome, paiId: await pastaDoTipo(a.cliente_id, a.pasta), mime: mimeDe(a.nome) });
+    const atual = db.prepare("SELECT id FROM arquivos WHERE id = ?").get(id);
+    if (!atual) {
+      // excluído enquanto subia: não deixa lixo no Drive
+      await drive.moverParaLixeira(r.id).catch(() => {});
+    } else {
+      db.prepare("UPDATE arquivos SET drive_id = ?, caminho = '', status = 'ok' WHERE id = ?").run(r.id, id);
+    }
+    tentativas.delete(id);
+    // mantém a cópia local por alguns minutos (tarefas podem estar lendo o arquivo)
+    setTimeout(() => fs.rmSync(abs, { force: true }), 10 * 60e3).unref();
+  } catch (e) {
+    const n = (tentativas.get(id) || 0) + 1;
+    tentativas.set(id, n);
+    console.error(`[drive] envio do arquivo ${id} falhou (tentativa ${n}):`, e.message);
+    db.prepare("UPDATE arquivos SET status = 'erro_envio' WHERE id = ?").run(id);
+    setTimeout(() => agendarEnvioDrive(id), Math.min(60e3 * n, 15 * 60e3)).unref();
+  }
+}
+
+// Na inicialização: retoma envios interrompidos e limpa temporários órfãos.
+export function retomarEnviosDrive() {
+  if (modo !== "drive") return;
+  const pend = db.prepare("SELECT id, caminho FROM arquivos WHERE status <> 'ok' AND drive_id IS NULL").all();
+  const usados = new Set(db.prepare("SELECT caminho FROM arquivos WHERE caminho LIKE 'pendentes/%'").all().map((r) => path.resolve(DATA_DIR, r.caminho)));
+  if (fs.existsSync(PENDENTES))
+    for (const f of fs.readdirSync(PENDENTES)) {
+      const abs = path.join(PENDENTES, f);
+      if (!usados.has(abs)) fs.rmSync(abs, { force: true });
+    }
+  for (const r of pend) {
+    if (r.caminho && fs.existsSync(path.resolve(DATA_DIR, r.caminho))) agendarEnvioDrive(r.id);
+  }
+  if (pend.length) console.log(`[drive] retomando ${pend.length} envio(s) pendente(s)`);
+}

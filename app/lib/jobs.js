@@ -31,15 +31,21 @@ export function nomeSeguro(nome) {
   return base.replace(/[^\w.\-() ]+/g, "_").replace(/\s+/g, " ").trim().slice(0, 150) || "arquivo";
 }
 
-export async function registrarArquivo({ clienteId, pasta, origemPath, nome, origem, userId }) {
+// `adiado`: responde na hora e manda ao Drive em segundo plano (usado nos uploads do navegador).
+export async function registrarArquivo({ clienteId, pasta, origemPath, nome, origem, userId, adiado = false }) {
   const final = storage.nomeLivreLocal(clienteId, pasta, nomeSeguro(nome || path.basename(origemPath)));
-  const { caminho, drive_id, tamanho } = await storage.guardar({ clienteId, pasta, origemPath, nome: final });
+  const emSegundoPlano = adiado && storage.usarEnvioAdiado();
+  const { caminho, drive_id = null, tamanho } = emSegundoPlano
+    ? storage.guardarPendente({ origemPath, nome: final })
+    : await storage.guardar({ clienteId, pasta, origemPath, nome: final });
   const r = db
     .prepare(
-      "INSERT INTO arquivos (cliente_id, pasta, nome, caminho, drive_id, tipo, tamanho, origem, criado_por) VALUES (?,?,?,?,?,?,?,?,?)"
+      "INSERT INTO arquivos (cliente_id, pasta, nome, caminho, drive_id, tipo, tamanho, origem, criado_por, status) VALUES (?,?,?,?,?,?,?,?,?,?)"
     )
-    .run(clienteId, pasta, final, caminho, drive_id, tipoDoArquivo(final), tamanho, origem || null, userId || null);
-  return Number(r.lastInsertRowid);
+    .run(clienteId, pasta, final, caminho, drive_id, tipoDoArquivo(final), tamanho, origem || null, userId || null, emSegundoPlano ? "enviando" : "ok");
+  const id = Number(r.lastInsertRowid);
+  if (emSegundoPlano) storage.agendarEnvioDrive(id);
+  return id;
 }
 
 function pegarArquivo(id, clienteId) {

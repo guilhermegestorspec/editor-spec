@@ -340,7 +340,6 @@ function abaPasta(alvo, c, pasta, arquivos) {
         <label class="btn primario" style="display:inline-flex">Escolher arquivos<input type="file" multiple hidden id="inp"></label>
         <button class="btn" id="por-link">${ic.link} Importar por link</button>
       </div>
-      <div class="progresso" id="prog" hidden><div></div></div>
       ${
         arquivos.length
           ? `<div class="grade-arquivos">${arquivos.map((a) => cartaoArquivo(a)).join("")}</div>`
@@ -348,31 +347,7 @@ function abaPasta(alvo, c, pasta, arquivos) {
       }
     </div>`;
 
-  const enviar = (files) => {
-    if (!files.length) return;
-    const fd = new FormData();
-    fd.append("pasta", pasta);
-    [...files].forEach((f) => fd.append("arquivos", f));
-    const prog = document.getElementById("prog");
-    prog.hidden = false;
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", `/api/clientes/${c.id}/arquivos`);
-    xhr.setRequestHeader("X-Spec", "1");
-    xhr.upload.onprogress = (e) => e.lengthComputable && (prog.firstElementChild.style.width = `${(e.loaded / e.total) * 100}%`);
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        toast(`${files.length} arquivo(s) enviado(s).`);
-        rota();
-      } else {
-        prog.hidden = true;
-        let m = "Falha no envio.";
-        try { m = JSON.parse(xhr.responseText).erro || m; } catch {}
-        toast(m, true);
-      }
-    };
-    xhr.onerror = () => toast("Falha de conexão no envio.", true);
-    xhr.send(fd);
-  };
+  const enviar = (files) => enfileirarEnvios(c, pasta, files);
   document.getElementById("inp").onchange = (e) => enviar(e.target.files);
   const drop = document.getElementById("drop");
   drop.ondragover = (e) => (e.preventDefault(), drop.classList.add("sobre"));
@@ -402,6 +377,7 @@ function abaPasta(alvo, c, pasta, arquivos) {
         await criarTarefa(c.id, "baixar", { url: new FormData(e.target).get("url"), pasta }, d);
       };
     };
+  if (arquivos.some((a) => a.status && a.status !== "ok")) estado.timers.push(setInterval(() => atualizarSeVisivel(c.id, pasta), 5000));
   alvo.querySelectorAll("[data-arquivo]").forEach((card) => {
     const a = arquivos.find((x) => x.id === Number(card.dataset.arquivo));
     card.querySelector(".midia").onclick = () => verArquivo(a);
@@ -415,6 +391,8 @@ function cartaoArquivo(a) {
     <div class="midia" title="Abrir">${midia(a)}</div>
     <div class="info">
       <div class="nome">${esc(a.nome)}</div>
+      ${a.status === "enviando" ? `<span class="badge rodando">Subindo para o Google Drive…</span>` : ""}
+      ${a.status === "erro_envio" ? `<span class="badge na_fila">Reenviando ao Google Drive…</span>` : ""}
       <div class="meta">${tamanho(a.tamanho)} · ${quando(a.criado_em)}${a.autor ? " · " + esc(a.autor) : ""}${a.origem && a.origem !== "upload" ? `<br>${esc(a.origem)}` : ""}</div>
       <div class="acoes">
         ${video ? `<button class="btn pequeno" data-acao="cortar" title="Cortar">${ic.tesoura}</button>
@@ -539,6 +517,192 @@ function acaoArquivo(acao, a, c) {
     };
   }
 }
+
+// ---------- envios em segundo plano ----------
+// Os uploads ficam fora da tela atual: dá para trocar de aba, de cliente ou de página do sistema
+// e eles continuam. Só fechar/recarregar a aba do navegador interrompe (o sistema avisa).
+const envios = { itens: [], ativos: 0, max: 3, minimizado: false, timerDesenho: null, timerLista: null };
+const pendentesEnvio = () => envios.itens.filter((i) => i.status === "fila" || i.status === "enviando");
+
+function enfileirarEnvios(cliente, pasta, files) {
+  if (!files || !files.length) return;
+  for (const file of files)
+    envios.itens.push({ id: Math.random().toString(36).slice(2), clienteId: cliente.id, cliente: cliente.nome, pasta, file, nome: file.name, total: file.size, enviado: 0, status: "fila" });
+  envios.minimizado = false;
+  processarEnvios();
+}
+
+function processarEnvios() {
+  while (envios.ativos < envios.max) {
+    const it = envios.itens.find((i) => i.status === "fila");
+    if (!it) break;
+    enviarItem(it);
+  }
+  desenharEnvios();
+}
+
+// Envia em partes: cada parte tem até 5 tentativas; se a conexão cair, retoma de onde parou.
+function putParte(url, blob, onProgresso, registrar) {
+  return new Promise((ok, falha) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", url);
+    xhr.setRequestHeader("X-Spec", "1");
+    xhr.setRequestHeader("Content-Type", "application/octet-stream");
+    xhr.upload.onprogress = (e) => e.lengthComputable && onProgresso(e.loaded);
+    xhr.onload = () => {
+      let dados = {};
+      try { dados = JSON.parse(xhr.responseText); } catch {}
+      if (xhr.status === 200 || xhr.status === 409) return ok(dados);
+      const err = new Error(dados.erro || `Erro ${xhr.status}`);
+      err.definitivo = xhr.status === 400 || xhr.status === 401 || xhr.status === 404 || xhr.status === 413;
+      falha(err);
+    };
+    xhr.onerror = () => falha(new Error("Falha de conexão"));
+    xhr.onabort = () => falha(Object.assign(new Error("Cancelado"), { definitivo: true }));
+    registrar(xhr);
+    xhr.send(blob);
+  });
+}
+
+async function enviarItem(it) {
+  envios.ativos++;
+  it.status = "enviando";
+  it.cancelado = false;
+  let erro = null;
+  try {
+    const inicio = await api(`/clientes/${it.clienteId}/envios`, { method: "POST", body: { pasta: it.pasta, nome: it.nome, tamanho: it.file.size } });
+    const parte = inicio.parte;
+    let pos = 0;
+    while (pos < it.file.size) {
+      const blob = it.file.slice(pos, pos + parte);
+      let tentativa = 0;
+      for (;;) {
+        if (it.cancelado) throw Object.assign(new Error("Cancelado"), { definitivo: true });
+        try {
+          const r = await putParte(
+            `/api/envios/${inicio.id}?offset=${pos}`,
+            blob,
+            (n) => {
+              it.enviado = pos + n;
+              agendarDesenho();
+            },
+            (xhr) => (it.abortar = () => xhr.abort())
+          );
+          pos = r.recebido; // o servidor diz até onde recebeu (resolve respostas perdidas)
+          it.enviado = pos;
+          it.tentando = false;
+          break;
+        } catch (e) {
+          if (e.definitivo || ++tentativa > 5) throw e;
+          it.tentando = true;
+          agendarDesenho();
+          await new Promise((ok) => setTimeout(ok, Math.min(2000 * 2 ** tentativa, 30000)));
+        }
+      }
+      agendarDesenho();
+    }
+    await api(`/envios/${inicio.id}/concluir`, { method: "POST", body: {} });
+  } catch (e) {
+    erro = e.message || "Falha no envio";
+  }
+  envios.ativos--;
+  it.status = erro ? "erro" : "ok";
+  it.erro = erro;
+  it.abortar = null;
+  if (!erro) {
+    it.file = null;
+    it.enviado = it.total;
+    atualizarSeVisivel(it.clienteId, it.pasta);
+  }
+  if (!pendentesEnvio().length) {
+    const ok = envios.itens.filter((i) => i.status === "ok").length;
+    const falhas = envios.itens.filter((i) => i.status === "erro").length;
+    toast(falhas ? `${ok} enviado(s), ${falhas} com erro.` : `${ok} arquivo(s) enviado(s).`, falhas > 0);
+  }
+  processarEnvios();
+}
+
+function atualizarSeVisivel(clienteId, pasta) {
+  // só recarrega a lista se a pessoa estiver olhando exatamente essa pasta
+  if (location.hash !== `#/cliente/${clienteId}/${pasta}`) return;
+  if (document.querySelector("dialog[open]")) return;
+  clearTimeout(envios.timerLista);
+  envios.timerLista = setTimeout(() => location.hash === `#/cliente/${clienteId}/${pasta}` && rota(), 800);
+}
+
+function agendarDesenho() {
+  if (envios.timerDesenho) return;
+  envios.timerDesenho = setTimeout(() => {
+    envios.timerDesenho = null;
+    desenharEnvios();
+  }, 250);
+}
+
+function desenharEnvios() {
+  let painel = document.getElementById("envios");
+  if (!envios.itens.length) return painel?.remove();
+  if (!painel) {
+    painel = document.createElement("section");
+    painel.id = "envios";
+    painel.className = "envios";
+    document.body.append(painel);
+    painel.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-env]");
+      if (!b) return;
+      const it = envios.itens.find((i) => i.id === b.dataset.id);
+      const acao = b.dataset.env;
+      if (acao === "min") envios.minimizado = !envios.minimizado;
+      if (acao === "limpar") envios.itens = pendentesEnvio();
+      if (acao === "cancelar" && it) {
+        if (it.status === "enviando") (it.cancelado = true), it.abortar && it.abortar();
+        else if (it.status === "fila") (it.status = "erro"), (it.erro = "Cancelado");
+      }
+      if (acao === "repetir" && it && it.file) (it.status = "fila"), (it.enviado = 0), (it.erro = null);
+      processarEnvios();
+    });
+  }
+  const pend = pendentesEnvio();
+  const total = envios.itens.reduce((t, i) => t + (i.total || 0), 0) || 1;
+  const feito = envios.itens.reduce((t, i) => t + (i.status === "ok" ? i.total : i.enviado || 0), 0);
+  const pct = Math.round((feito / total) * 100);
+  const titulo = pend.length ? `Enviando ${pend.length} arquivo${pend.length > 1 ? "s" : ""} · ${pct}%` : "Envios concluídos";
+  painel.innerHTML = `
+    <div class="env-cab">
+      <b>${titulo}</b>
+      <div class="acoes">
+        ${pend.length ? "" : `<button class="btn pequeno fantasma" data-env="limpar">Limpar</button>`}
+        <button class="btn pequeno fantasma" data-env="min" aria-label="${envios.minimizado ? "Expandir" : "Minimizar"}">${envios.minimizado ? "▴" : "▾"}</button>
+      </div>
+    </div>
+    <div class="progresso"><div style="width:${pct}%"></div></div>
+    ${
+      envios.minimizado
+        ? ""
+        : `<ul class="env-lista">${envios.itens
+            .slice()
+            .reverse()
+            .map((i) => {
+              const p = i.status === "ok" ? 100 : Math.round(((i.enviado || 0) / (i.total || 1)) * 100);
+              const st = { fila: "Na fila", enviando: i.tentando ? "Reconectando…" : `${p}%`, ok: "Enviado", erro: esc(i.erro || "Erro") }[i.status];
+              return `<li>
+                <div class="env-nome"><span>${esc(i.nome)}</span><small>${esc(i.cliente)} · ${esc(PASTAS.find((x) => x.id === i.pasta)?.nome || i.pasta)}</small></div>
+                <div class="env-status ${i.status}">${st}
+                  ${i.status === "fila" || i.status === "enviando" ? `<button class="btn pequeno fantasma" data-env="cancelar" data-id="${i.id}" aria-label="Cancelar">${ic.x}</button>` : ""}
+                  ${i.status === "erro" && i.file ? `<button class="btn pequeno fantasma" data-env="repetir" data-id="${i.id}">Tentar de novo</button>` : ""}
+                </div>
+                ${i.status === "enviando" ? `<div class="progresso fino"><div style="width:${p}%"></div></div>` : ""}
+              </li>`;
+            })
+            .join("")}</ul>`
+    }`;
+}
+
+window.addEventListener("beforeunload", (e) => {
+  if (pendentesEnvio().length) {
+    e.preventDefault();
+    e.returnValue = "";
+  }
+});
 
 // ---------- criar peça ----------
 function abaCriar(alvo, c, arquivos) {

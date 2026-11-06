@@ -1,6 +1,7 @@
 // Spec Studio — editor de vídeo e designer da Spec.
 import express from "express";
 import multer from "multer";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { db, DATA_DIR, PASTAS } from "./lib/db.js";
@@ -208,7 +209,7 @@ app.get("/api/clientes/:id/arquivos", exigirLogin, (req, res) => {
   const c = clienteOu404(req, res);
   if (!c) return;
   const pasta = PASTAS.includes(req.query.pasta) ? req.query.pasta : null;
-  const sql = `SELECT a.id, a.pasta, a.nome, a.tipo, a.tamanho, a.origem, a.criado_em, u.nome AS autor
+  const sql = `SELECT a.id, a.pasta, a.nome, a.tipo, a.tamanho, a.origem, a.criado_em, a.status, u.nome AS autor
                FROM arquivos a LEFT JOIN users u ON u.id = a.criado_por
                WHERE a.cliente_id = ? ${pasta ? "AND a.pasta = ?" : ""} ORDER BY a.id DESC`;
   res.json(pasta ? db.prepare(sql).all(c.id, pasta) : db.prepare(sql).all(c.id));
@@ -234,6 +235,7 @@ app.post("/api/clientes/:id/arquivos", exigirLogin, upload.array("arquivos"), as
           nome: Buffer.from(f.originalname, "latin1").toString("utf8"),
           origem: "upload",
           userId: req.user.id,
+          adiado: true,
         })
       );
     }
@@ -244,6 +246,83 @@ app.post("/api/clientes/:id/arquivos", exigirLogin, upload.array("arquivos"), as
   }
   res.json({ ids });
 });
+
+// ---------- upload em partes (retomável) ----------
+// O navegador manda o arquivo em pedaços; se um pedaço falhar, só ele é reenviado.
+const ENVIOS_DIR = path.join(DATA_DIR, "envios");
+fs.mkdirSync(ENVIOS_DIR, { recursive: true });
+const PARTE_MAX = 64 * 1024 * 1024;
+const enviosAbertos = new Map(); // id -> { clienteId, pasta, nome, tamanho, userId, arquivo, criado }
+
+app.post("/api/clientes/:id/envios", exigirLogin, (req, res) => {
+  const c = clienteOu404(req, res);
+  if (!c) return;
+  const { pasta, nome } = req.body;
+  const tamanho = Number(req.body.tamanho);
+  if (!PASTAS.includes(pasta)) return erro(res, 400, "Pasta inválida.");
+  if (!nome || !Number.isFinite(tamanho) || tamanho < 0) return erro(res, 400, "Arquivo inválido.");
+  if (tamanho > Number(process.env.UPLOAD_MAX_MB || 4096) * 1024 * 1024) return erro(res, 413, "Arquivo maior que o limite permitido.");
+  const idEnvio = crypto.randomUUID();
+  const arquivo = path.join(ENVIOS_DIR, idEnvio + ".part");
+  fs.writeFileSync(arquivo, "");
+  enviosAbertos.set(idEnvio, { clienteId: c.id, pasta, nome: String(nome).slice(0, 255), tamanho, userId: req.user.id, arquivo, criado: Date.now() });
+  res.json({ id: idEnvio, parte: 32 * 1024 * 1024 });
+});
+
+function envioDoUsuario(req, res) {
+  const e = enviosAbertos.get(req.params.envio);
+  if (!e || e.userId !== req.user.id) {
+    erro(res, 404, "Envio não encontrado ou expirado. Envie o arquivo de novo.");
+    return null;
+  }
+  return e;
+}
+
+app.put("/api/envios/:envio", exigirLogin, (req, res) => {
+  const e = envioDoUsuario(req, res);
+  if (!e) return;
+  const atual = fs.statSync(e.arquivo).size;
+  const offset = Number(req.query.offset);
+  // pedaço repetido (ex.: a resposta anterior se perdeu): só confirma onde estamos
+  if (offset !== atual) return res.status(409).json({ recebido: atual });
+  let recebido = 0;
+  let estourou = false;
+  const destino = fs.createWriteStream(e.arquivo, { flags: "a" });
+  req.on("data", (b) => {
+    recebido += b.length;
+    if (recebido > PARTE_MAX || atual + recebido > e.tamanho) estourou = true;
+  });
+  req.pipe(destino);
+  destino.on("finish", () => {
+    if (estourou) {
+      fs.truncateSync(e.arquivo, atual);
+      return erro(res, 400, "Parte maior que o permitido.");
+    }
+    res.json({ recebido: atual + recebido });
+  });
+  const falhou = () => {
+    destino.destroy();
+    try { fs.truncateSync(e.arquivo, atual); } catch {}
+  };
+  req.on("aborted", falhou);
+  destino.on("error", () => (falhou(), res.headersSent || erro(res, 500, "Falha ao gravar a parte.")));
+});
+
+app.post("/api/envios/:envio/concluir", exigirLogin, async (req, res) => {
+  const e = envioDoUsuario(req, res);
+  if (!e) return;
+  const recebido = fs.statSync(e.arquivo).size;
+  if (recebido !== e.tamanho) return erro(res, 409, `Arquivo incompleto (${recebido} de ${e.tamanho} bytes).`);
+  enviosAbertos.delete(req.params.envio);
+  const id = await registrarArquivo({ clienteId: e.clienteId, pasta: e.pasta, origemPath: e.arquivo, nome: e.nome, origem: "upload", userId: e.userId, adiado: true });
+  res.json({ id });
+});
+
+// limpa envios abandonados (mais de 24 h)
+setInterval(() => {
+  for (const [id, e] of enviosAbertos) if (Date.now() - e.criado > 864e5) (enviosAbertos.delete(id), fs.rmSync(e.arquivo, { force: true }));
+}, 36e5).unref();
+for (const f of fs.readdirSync(ENVIOS_DIR)) fs.rmSync(path.join(ENVIOS_DIR, f), { force: true }); // sobra de reinício
 
 function arquivoOu404(req, res) {
   const a = db.prepare("SELECT * FROM arquivos WHERE id = ?").get(id(req.params.id));
@@ -269,6 +348,7 @@ app.patch("/api/arquivos/:id", exigirLogin, async (req, res) => {
   if (!a) return;
   const pasta = req.body.pasta;
   if (!PASTAS.includes(pasta) || pasta === a.pasta) return erro(res, 400, "Pasta inválida.");
+  if (a.status !== "ok") return erro(res, 409, "Aguarde o arquivo terminar de subir para o Google Drive.");
   const nome = storage.nomeLivreLocal(a.cliente_id, pasta, nomeSeguro(a.nome));
   const { caminho } = await storage.moverPasta(a, pasta, nome);
   db.prepare("UPDATE arquivos SET pasta = ?, nome = ?, caminho = ? WHERE id = ?").run(pasta, nome, caminho, a.id);
@@ -278,7 +358,8 @@ app.patch("/api/arquivos/:id", exigirLogin, async (req, res) => {
 app.delete("/api/arquivos/:id", exigirLogin, async (req, res) => {
   const a = arquivoOu404(req, res);
   if (!a) return;
-  await storage.remover(a);
+  if (a.drive_id) await storage.remover(a);
+  else if (a.caminho) fs.rmSync(path.resolve(DATA_DIR, a.caminho), { force: true }); // ainda no disco (local ou subindo)
   db.prepare("DELETE FROM arquivos WHERE id = ?").run(a.id);
   res.json({ ok: true });
 });
@@ -311,7 +392,10 @@ app.get("/healthz", (req, res) => res.send("ok"));
 app.use(express.static(path.join(import.meta.dirname, "public"), { index: "index.html" }));
 
 app.use((err, req, res, next) => {
-  if (err instanceof multer.MulterError) return erro(res, 400, `Upload: ${err.message}`);
+  if (err instanceof multer.MulterError) {
+    console.error("[upload] multer:", err.code, err.message);
+    return erro(res, 400, `Upload: ${err.message}`);
+  }
   console.error(err);
   erro(res, 500, "Erro interno.");
 });
@@ -324,6 +408,7 @@ try {
   process.exit(1);
 }
 agendarBackups({ db, dataDir: DATA_DIR, pastaSistema: storage.pastaSistema });
+storage.retomarEnviosDrive();
 retomarFila();
 const servidor = app.listen(PORT, () => console.log(`Spec Studio rodando em http://localhost:${PORT}`));
 servidor.requestTimeout = 0; // uploads de vídeos grandes podem levar mais de 5 minutos
