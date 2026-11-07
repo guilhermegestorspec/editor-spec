@@ -46,6 +46,17 @@ Portal da equipe em `app/` (Node 22 + Express + SQLite embutido, sem build):
   Botão "Analisar com IA" nos arquivos abre uma conversa já com o arquivo anexado.
 - Uploads em partes de 32 MB (`/api/clientes/:id/envios`), em segundo plano no navegador; com Drive, o servidor responde ao
   receber e envia ao Drive depois (status `enviando` → `ok`).
+- Tarefas = painel de produção ao vivo (`/api/atividades`): no topo o que está sendo processado agora, por cliente
+  (pedidos ao Assistente IA com etapa atual, tempo, tokens e custo; tarefas da fila com a última linha do log); embaixo os
+  concluídos. Cada pedido ao assistente vira uma linha em `turnos` (tokens ao vivo pelas mensagens do SDK; no fim, a diferença
+  do total acumulado da sessão). Contador de itens em andamento no menu.
+- Assistente: modo ⚡ Rápido (effort `medium`, padrão) ou 🧠 Detalhado (`high`). Prompt com regras de agilidade
+  (uma passada de FFmpeg, Remotion só para motion, proxies 1080p, sem processos pesados em paralelo).
+- Memória: `app/lib/recursos.js` lê o limite do container (cgroup) e mata o processo pesado da vez (Chrome/FFmpeg/Python)
+  ao passar de 90% da RAM, para o servidor não ser derrubado (oomKilled). Com ≤ 3 GB, só 1 conversa roda por vez.
+- App no celular (PWA): `manifest.webmanifest`, `sw.js`, ícones em `marca/app-*.png`. Notificações Web Push
+  (`app/lib/push.js`, chaves VAPID geradas e guardadas no banco) quando um pedido ao assistente ou uma tarefa termina;
+  ativar em "Minha conta" ou no aviso da aba Tarefas. No iPhone exige o app adicionado à Tela de Início (iOS 16.4+).
 - Aba "Usuários e acessos" (admin): criar, bloquear, trocar papel e senha.
 - Identidade visual Spec: #222222, #00F28A, branco, fonte Ubuntu; temas escuro/claro. Logos em `app/public/marca/`.
 - Armazenamento: disco local por padrão; com `DRIVE_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON` usa o Drive compartilhado da Spec

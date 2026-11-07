@@ -431,3 +431,57 @@ input[type="radio"] { width: 18px; height: 18px; accent-color: var(--verde); fle
   .main { padding: 20px 16px 48px; }
   h1 { font-size: 23px; }
 }
+
+/* ---------- painel de produção (tarefas ao vivo) ---------- */
+.contador {
+  margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 99px; font-style: normal;
+  background: var(--accent); color: var(--on-accent); font-size: 12px; font-weight: 700; display: grid; place-items: center;
+}
+.contador[hidden] { display: none; }
+.resumo-atv { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin-bottom: 8px; }
+.resumo-atv .card { display: grid; gap: 2px; padding: 14px 16px; }
+.resumo-atv b { font-size: 22px; }
+.secao-titulo { font-size: 16px; margin: 22px 0 12px; display: flex; align-items: center; gap: 8px; }
+.ponto-vivo { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); animation: pulso 1.2s infinite; }
+.atv-grupo { margin-bottom: 16px; }
+.atv-grupo h3 { font-size: 14px; margin: 0 0 8px; display: flex; gap: 8px; align-items: baseline; }
+.atv-grade { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); }
+.atv {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px;
+  display: grid; gap: 8px; min-width: 0;
+}
+.atv.rodando { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.atv-topo { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.atv-tipo { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.atv-tipo svg { width: 15px; height: 15px; color: var(--accent-ink); }
+.atv-titulo { font-size: 15px; line-height: 1.35; overflow-wrap: anywhere; }
+.atv-etapa { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--text-2); min-height: 18px; overflow-wrap: anywhere; }
+.atv-metricas { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--text-2); }
+.vazio.pequeno { padding: 18px; }
+.aviso-notif {
+  border: 1px solid var(--border); background: var(--surface-2); border-radius: var(--radius-sm); padding: 10px 14px;
+  font-size: 14px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px;
+}
+.aviso-notif[hidden] { display: none; }
+
+/* modo do assistente */
+.modo-ia { display: inline-flex; border: 1px solid var(--border); border-radius: 99px; padding: 2px; gap: 2px; }
+.modo-ia label { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 99px; font-size: 13px; cursor: pointer; color: var(--text-2); }
+.modo-ia input { position: absolute; opacity: 0; pointer-events: none; }
+.modo-ia label:has(input:checked) { background: var(--accent-soft); color: var(--text); font-weight: 500; }
+.modo-ia label:has(input:focus-visible) { outline: 2px solid var(--accent); }
+
+/* app instalado no celular: respeita o entalhe e a barra de gestos */
+@media (display-mode: standalone) {
+  .barra-movel { padding-top: max(10px, env(safe-area-inset-top)); }
+  .main { padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+}
+.atv-lista { padding: 4px 0; }
+.atv-linha {
+  display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+}
+.atv-linha:last-child { border-bottom: 0; }
+.atv-linha-info { display: grid; gap: 3px; min-width: 0; flex: 1 1 280px; }
+.atv-linha-info b { font-weight: 500; overflow-wrap: anywhere; }
+.atv-linha-num { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 13px; color: var(--text-2); }

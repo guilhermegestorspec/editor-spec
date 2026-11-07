@@ -6,6 +6,7 @@ import { db, DATA_DIR, ROOT } from "./db.js";
 import { FORMATOS_VIDEO, FORMATOS_GRAFICO, MODELOS_WHISPER } from "./presets.js";
 import { rodarAgente } from "./agent.js";
 import * as storage from "./storage.js";
+import * as push from "./push.js";
 
 const PY = process.env.PYTHON || "python3";
 const BIN = path.join(ROOT, "node_modules", ".bin");
@@ -140,6 +141,14 @@ async function proxima() {
     );
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
+    const fim = db.prepare("SELECT t.status, c.nome FROM tarefas t LEFT JOIN clientes c ON c.id = t.cliente_id WHERE t.id = ?").get(t.id);
+    const NOMES = { cortar: "Corte", exportar: "Exportação", legendar: "Legenda", baixar: "Download", grafico: "Peça gráfica", ia: "Tarefa de IA" };
+    push.notificar(t.criado_por, {
+      titulo: `${fim?.status === "ok" ? "✅" : "⚠️"} ${fim?.nome || "Cliente"}: ${NOMES[t.tipo] || t.tipo} ${fim?.status === "ok" ? "concluída" : "com erro"}`,
+      corpo: ctx.saidas.length ? `${ctx.saidas.length} arquivo(s) pronto(s) na biblioteca.` : "Toque para ver os detalhes.",
+      url: "/#/tarefas",
+      tag: `tarefa-${t.id}`,
+    }).catch(() => {});
     rodando--;
     setImmediate(proxima);
   }

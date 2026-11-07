@@ -180,7 +180,7 @@ function casca(ativo, conteudo) {
       <div class="marca">${logo("Spec", "-sem-tag")}<small>Studio</small></div>
       <nav class="nav">
         ${item("#/clientes", "Clientes", ic.clientes, "clientes")}
-        ${item("#/tarefas", "Tarefas", ic.tarefas, "tarefas")}
+        ${item("#/tarefas", "Tarefas", ic.tarefas, "tarefas").replace("</span></a>", `</span><em class="contador" id="contador-atv" hidden></em></a>`)}
         ${eu.papel === "admin" ? item("#/usuarios", "Usuários e acessos", ic.usuarios, "usuarios") : ""}
         ${item("#/conta", "Minha conta", ic.conta, "conta")}
       </nav>
@@ -197,6 +197,7 @@ function casca(ativo, conteudo) {
       <main class="main" id="conteudo">${conteudo}</main>
     </div>
   </div>`;
+  estado.tic?.();
   document.getElementById("sair").onclick = async () => {
     await api("/logout", { method: "POST" }).catch(() => {});
     estado.eu = null;
@@ -891,6 +892,10 @@ async function chatConversa(painel, c, arquivos, conversaId) {
       <div class="chips" id="chips"></div>
       <textarea name="texto" rows="1" placeholder="Escreva o que você precisa… (Enter envia, Shift+Enter quebra linha)"></textarea>
       <div class="chat-compor-acoes">
+        <div class="modo-ia" role="radiogroup" aria-label="Modo do assistente">
+          <label title="Direto ao ponto: executa rápido"><input type="radio" name="modo" value="rapido"> ⚡ Rápido</label>
+          <label title="Pensa mais antes de agir: estratégia, análises complexas"><input type="radio" name="modo" value="detalhado"> 🧠 Detalhado</label>
+        </div>
         <button type="button" class="btn pequeno fantasma" id="anexar">${ic.mover} Anexar da biblioteca</button>
         <label class="btn pequeno fantasma">${ic.upload} Enviar do computador<input type="file" multiple hidden id="up-chat"></label>
         <button class="btn primario" id="enviar">Enviar</button>
@@ -900,6 +905,12 @@ async function chatConversa(painel, c, arquivos, conversaId) {
   const form = painel.querySelector("#compor");
   const ta = form.texto;
   if (rascunho) ta.value = rascunho.texto;
+  let modoSalvo = "rapido";
+  try {
+    modoSalvo = localStorage.getItem("spec-modo-ia") || "rapido";
+  } catch {}
+  form.modo.value = modoSalvo === "detalhado" ? "detalhado" : "rapido";
+  form.querySelectorAll("[name=modo]").forEach((r) => (r.onchange = () => { try { localStorage.setItem("spec-modo-ia", form.modo.value); } catch {} }));
 
   const autoAltura = () => {
     ta.style.height = "auto";
@@ -979,7 +990,7 @@ async function chatConversa(painel, c, arquivos, conversaId) {
     const btn = form.querySelector("#enviar");
     btn.disabled = true;
     try {
-      await api(`/conversas/${conversaId}/mensagens`, { method: "POST", body: { texto, arquivo_ids: st.anexos.map((a) => a.id) } });
+      await api(`/conversas/${conversaId}/mensagens`, { method: "POST", body: { texto, arquivo_ids: st.anexos.map((a) => a.id), modo: form.modo.value } });
       ta.value = "";
       st.anexos = [];
       desenharChips();
@@ -1063,7 +1074,13 @@ async function chatConversa(painel, c, arquivos, conversaId) {
     st.status = r.conversa.status;
     const trabalhando = st.status !== "ociosa";
     painel.querySelector("#trabalhando").hidden = !trabalhando;
-    painel.querySelector("#trab-texto").textContent = st.status === "na_fila" ? "Na fila: outra conversa está sendo atendida…" : "O assistente está trabalhando…";
+    const tu = r.turno;
+    painel.querySelector("#trab-texto").textContent =
+      st.status === "na_fila"
+        ? "Na fila: outra conversa está sendo atendida…"
+        : tu && tu.status === "rodando"
+          ? `${tu.etapa || "Trabalhando"} · ${duracaoTxt(tu.decorrido)} · ${tokensTxt(tu.tokens)} tokens`
+          : "O assistente está trabalhando…";
     painel.querySelector("#parar").disabled = false;
     form.querySelector("#enviar").disabled = trabalhando;
     ta.placeholder = trabalhando ? "Aguarde o assistente terminar para mandar a próxima mensagem…" : "Escreva o que você precisa… (Enter envia, Shift+Enter quebra linha)";
@@ -1075,6 +1092,98 @@ async function chatConversa(painel, c, arquivos, conversaId) {
   await atualizar();
   autoAltura();
   ta.focus();
+}
+
+// ---------- app no celular (PWA) e notificações ----------
+const ehIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const instalado = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const suportaPush = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+
+function registrarSW() {
+  if (!("serviceWorker" in navigator)) return null;
+  estado.sw ||= navigator.serviceWorker.register("/sw.js").catch(() => null);
+  return estado.sw;
+}
+
+function b64ParaBytes(b64) {
+  const pad = "=".repeat((4 - (b64.length % 4)) % 4);
+  const bin = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+}
+
+async function estadoNotificacoes() {
+  if (!suportaPush()) return ehIOS() && !instalado() ? "instalar" : "sem-suporte";
+  if (Notification.permission === "denied") return "bloqueado";
+  const reg = await registrarSW();
+  const sub = reg && (await reg.pushManager.getSubscription());
+  return sub && Notification.permission === "granted" ? "ativo" : "inativo";
+}
+
+async function ativarNotificacoes() {
+  const perm = await Notification.requestPermission();
+  if (perm !== "granted") throw new Error("Permissão negada. Libere as notificações do Spec Studio nas configurações do navegador/celular.");
+  const reg = await registrarSW();
+  await navigator.serviceWorker.ready;
+  const { chave } = await api("/push");
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ParaBytes(chave) });
+  await api("/push", { method: "POST", body: { inscricao: sub.toJSON(), aparelho: `${instalado() ? "app" : "navegador"} · ${navigator.userAgent.slice(0, 90)}` } });
+  await api("/push/teste", { method: "POST" });
+}
+
+async function desativarNotificacoes() {
+  const reg = await registrarSW();
+  const sub = reg && (await reg.pushManager.getSubscription());
+  if (sub) {
+    await api("/push", { method: "DELETE", body: { endpoint: sub.endpoint } }).catch(() => {});
+    await sub.unsubscribe();
+  }
+}
+
+function botaoNotificacoesHtml() {
+  return `<div class="aviso-notif" id="aviso-notif" hidden></div>`;
+}
+
+async function ligarBotaoNotificacoes(raizEl, { sempre = false } = {}) {
+  const box = raizEl.querySelector("#aviso-notif");
+  if (!box) return;
+  const pintar = async () => {
+    const e = await estadoNotificacoes();
+    let dispensado = false;
+    try {
+      dispensado = localStorage.getItem("spec-notif-dispensado") === "1";
+    } catch {}
+    if (!sempre && (e === "ativo" || e === "sem-suporte" || dispensado)) return (box.hidden = true);
+    box.hidden = false;
+    const msg = {
+      ativo: `🔔 Notificações ativas neste aparelho. <button class="btn pequeno fantasma" data-n="testar">Testar</button> <button class="btn pequeno fantasma" data-n="desativar">Desativar</button>`,
+      inativo: `🔔 Receba um aviso no celular/computador quando cada tarefa terminar. <button class="btn pequeno primario" data-n="ativar">Ativar notificações</button>${sempre ? "" : ` <button class="btn pequeno fantasma" data-n="dispensar">Agora não</button>`}`,
+      bloqueado: `🔕 As notificações estão bloqueadas para este site. Libere nas configurações do navegador e recarregue.${sempre ? "" : ` <button class="btn pequeno fantasma" data-n="dispensar">Ok</button>`}`,
+      instalar: `📱 No iPhone, as notificações funcionam com o app instalado: toque em <b>Compartilhar</b> → <b>Adicionar à Tela de Início</b>, abra o Spec Studio pelo ícone e ative aqui.${sempre ? "" : ` <button class="btn pequeno fantasma" data-n="dispensar">Ok</button>`}`,
+      "sem-suporte": `Este navegador não suporta notificações. Use Chrome, Edge, Safari (iPhone com o app instalado) ou Firefox.`,
+    }[e];
+    box.innerHTML = msg;
+    box.querySelectorAll("[data-n]").forEach(
+      (b) =>
+        (b.onclick = async () => {
+          b.disabled = true;
+          try {
+            if (b.dataset.n === "ativar") (await ativarNotificacoes(), toast("Notificações ativadas! Enviamos um teste."));
+            if (b.dataset.n === "testar") (await api("/push/teste", { method: "POST" }), toast("Notificação de teste enviada."));
+            if (b.dataset.n === "desativar") (await desativarNotificacoes(), toast("Notificações desativadas neste aparelho."));
+            if (b.dataset.n === "dispensar") {
+              try {
+                localStorage.setItem("spec-notif-dispensado", "1");
+              } catch {}
+            }
+          } catch (err) {
+            toast(err.message, true);
+          }
+          pintar();
+        })
+    );
+  };
+  pintar().catch(() => {});
 }
 
 // ---------- tarefas ----------
@@ -1089,29 +1198,136 @@ function resumoTarefa(t) {
   return "";
 }
 
+function duracaoTxt(seg) {
+  if (seg == null || seg < 0) return "—";
+  const h = Math.floor(seg / 3600), m = Math.floor((seg % 3600) / 60), s2 = seg % 60;
+  return h ? `${h}h${String(m).padStart(2, "0")}` : `${m}:${String(s2).padStart(2, "0")}`;
+}
+function tokensTxt(n) {
+  if (!n) return "0";
+  return n >= 1e6 ? (n / 1e6).toFixed(1).replace(".", ",") + " mi" : n >= 1e3 ? Math.round(n / 1e3) + " mil" : String(n);
+}
+const custoTxt = (v) => (v ? `US$ ${v.toFixed(2)}` : "—");
+const STATUS_ATV = { na_fila: "Na fila", rodando: "Processando", ok: "Concluído", erro: "Erro", cancelado: "Interrompido" };
+
+function tituloAtividade(a) {
+  if (a.fonte === "ia") return a.titulo;
+  return `${NOME_TAREFA[a.tipo] || a.tipo}${resumoTarefa(a) ? " · " + resumoTarefa(a) : ""}`;
+}
+function linkAtividade(a) {
+  return a.fonte === "ia" ? `#/cliente/${a.cliente_id}/ia/${a.conversa_id}` : null;
+}
+
+// Painel de produção: em andamento (ao vivo, por cliente) no topo, concluídos embaixo.
 async function listaTarefas(alvo, clienteId) {
-  const desenhar = async () => {
-    const tarefas = await api(`/tarefas${clienteId ? `?cliente_id=${clienteId}` : ""}`);
-    alvo.innerHTML = tarefas.length
-      ? `<div class="card rolagem" style="padding:14px 8px"><table class="tabela">
-        <thead><tr><th>#</th><th>Tipo</th>${clienteId ? "" : "<th>Cliente</th>"}<th>Detalhes</th><th>Status</th><th>Quem</th><th>Quando</th><th></th></tr></thead>
-        <tbody>${tarefas
-          .map(
-            (t) => `<tr>
-            <td class="muted">${t.id}</td><td><b>${NOME_TAREFA[t.tipo] || t.tipo}</b></td>
-            ${clienteId ? "" : `<td><a href="#/cliente/${t.cliente_id}/editados">${esc(t.cliente)}</a></td>`}
-            <td style="max-width:340px" class="small">${esc(resumoTarefa(t)).slice(0, 160)}</td>
-            <td><span class="badge ${t.status}">${STATUS[t.status]}</span></td>
-            <td class="small">${esc(t.autor || "")}</td><td class="small muted">${quando(t.criado_em)}</td>
-            <td><button class="btn pequeno" data-log="${t.id}">Ver</button></td></tr>`
-          )
-          .join("")}</tbody></table></div>`
-      : `<div class="vazio"><p>Nenhuma tarefa ainda. Use as ações nos arquivos, “Criar peça” ou o Assistente IA.</p></div>`;
-    alvo.querySelectorAll("[data-log]").forEach((b) => (b.onclick = () => verLog(Number(b.dataset.log))));
-    return tarefas.some((t) => ["na_fila", "rodando"].includes(t.status));
+  alvo.innerHTML = `
+    ${botaoNotificacoesHtml()}
+    <div class="resumo-atv" id="resumo"></div>
+    <h2 class="secao-titulo"><span class="ponto-vivo"></span> Em andamento agora</h2>
+    <div id="andamento"></div>
+    <h2 class="secao-titulo">Concluídos</h2>
+    <div id="concluidos"></div>`;
+  ligarBotaoNotificacoes(alvo);
+  let timer = null;
+  let base = Date.now();
+  let dados = null;
+
+  const cartao = (a) => {
+    const seg = a.decorrido + Math.round((Date.now() - base) / 1000);
+    const href = linkAtividade(a);
+    return `<article class="atv ${a.status}">
+      <div class="atv-topo">
+        <span class="atv-tipo">${a.fonte === "ia" ? `${ic.ia || "🤖"} Assistente IA${a.modo === "detalhado" ? " · detalhado" : ""}` : esc(NOME_TAREFA[a.tipo] || a.tipo)}</span>
+        <span class="badge ${a.status}">${STATUS_ATV[a.status]}</span>
+      </div>
+      <b class="atv-titulo">${esc(tituloAtividade(a)).slice(0, 220)}</b>
+      <div class="atv-etapa">${a.status === "rodando" ? `<span class="pontinhos"><i></i><i></i><i></i></span>` : ""}${esc(a.etapa || (a.status === "na_fila" ? "Aguardando a vez" : "")) }</div>
+      <div class="atv-metricas">
+        <span title="Tempo">⏱ <b data-seg="${a.status === "rodando" ? seg : ""}">${duracaoTxt(seg)}</b></span>
+        ${a.fonte === "ia" ? `<span title="Tokens (entrada · cache · saída): ${a.tokens.entrada} · ${a.tokens.cache} · ${a.tokens.saida}">🔤 <b>${tokensTxt(a.tokens.total)}</b> tokens</span><span>💲 <b>${custoTxt(a.custo)}</b></span><span>${a.etapas} etapas</span>` : ""}
+        <span class="muted">${esc(a.autor || "")}</span>
+      </div>
+      <div class="acoes">
+        ${href ? `<a class="btn pequeno" href="${href}">Abrir conversa</a>` : `<button class="btn pequeno" data-log="${a.id}">Ver log</button>`}
+        ${a.fonte === "ia" ? `<button class="btn pequeno fantasma perigo" data-parar="${a.conversa_id}">Parar</button>` : ""}
+      </div>
+    </article>`;
   };
-  const ativo = await desenhar();
-  if (ativo) estado.timers.push(setInterval(desenhar, 4000));
+
+  const desenhar = () => {
+    const d = dados;
+    alvo.querySelector("#resumo").innerHTML = `
+      <div class="card"><span class="muted small">Processando agora</span><b>${d.andamento.filter((a) => a.status === "rodando").length}</b><small class="muted">${d.andamento.filter((a) => a.status === "na_fila").length} na fila</small></div>
+      <div class="card"><span class="muted small">Tokens hoje</span><b>${tokensTxt(d.hoje.tokens)}</b><small class="muted">${d.hoje.pedidos} pedido(s) à IA</small></div>
+      <div class="card"><span class="muted small">Custo IA hoje</span><b>${custoTxt(d.hoje.custo)}</b><small class="muted">mês: ${custoTxt(d.mes.custo)} · ${tokensTxt(d.mes.tokens)} tokens</small></div>
+      <div class="card"><span class="muted small">Servidor</span><b>${d.maquina.cpus} CPU · ${d.maquina.ram_gb} GB</b><small class="muted">memória disponível para edição</small></div>`;
+
+    const and = alvo.querySelector("#andamento");
+    if (!d.andamento.length) and.innerHTML = `<div class="vazio pequeno"><p class="muted">Nada sendo processado agora.</p></div>`;
+    else if (clienteId) and.innerHTML = `<div class="atv-grade">${d.andamento.map(cartao).join("")}</div>`;
+    else {
+      const grupos = new Map();
+      for (const a of d.andamento) {
+        if (!grupos.has(a.cliente_id)) grupos.set(a.cliente_id, { nome: a.cliente, itens: [] });
+        grupos.get(a.cliente_id).itens.push(a);
+      }
+      and.innerHTML = [...grupos.entries()]
+        .map(([cid, g]) => `<section class="atv-grupo"><h3><a href="#/cliente/${cid}/ia">${esc(g.nome || "Cliente")}</a> <span class="muted small">${g.itens.length} item(ns)</span></h3><div class="atv-grade">${g.itens.map(cartao).join("")}</div></section>`)
+        .join("");
+    }
+
+    alvo.querySelector("#concluidos").innerHTML = d.concluidos.length
+      ? `<div class="card atv-lista">${d.concluidos
+          .map((a) => {
+            const href = linkAtividade(a);
+            return `<div class="atv-linha">
+              <div class="atv-linha-info">
+                <span class="muted small">${a.fonte === "ia" ? "Assistente IA" : esc(NOME_TAREFA[a.tipo] || a.tipo)}${clienteId ? "" : ` · <a href="#/cliente/${a.cliente_id}/ia">${esc(a.cliente || "")}</a>`} · ${esc(a.autor || "")} · ${quando(a.terminado_em || a.criado_em)}</span>
+                <b>${esc(tituloAtividade(a)).slice(0, 160)}</b>
+              </div>
+              <div class="atv-linha-num">
+                <span class="badge ${a.status}">${STATUS_ATV[a.status] || a.status}</span>
+                <span title="Duração">⏱ ${duracaoTxt(a.duracao)}</span>
+                ${a.tokens ? `<span title="entrada ${a.tokens.entrada} · cache ${a.tokens.cache} · saída ${a.tokens.saida}">🔤 ${tokensTxt(a.tokens.total)}</span><span>💲 ${custoTxt(a.custo)}</span>` : ""}
+                ${a.entregas ? `<span>📦 ${a.entregas}</span>` : ""}
+                ${href ? `<a class="btn pequeno" href="${href}">Abrir</a>` : `<button class="btn pequeno" data-log="${a.id}">Ver</button>`}
+              </div>
+            </div>`;
+          })
+          .join("")}</div>`
+      : `<div class="vazio pequeno"><p class="muted">Nada concluído ainda. Peça algo ao Assistente IA do cliente.</p></div>`;
+
+    alvo.querySelectorAll("[data-log]").forEach((b) => (b.onclick = () => verLog(Number(b.dataset.log))));
+    alvo.querySelectorAll("[data-parar]").forEach(
+      (b) =>
+        (b.onclick = async () => {
+          if (!confirm("Parar o assistente nesta conversa?")) return;
+          b.disabled = true;
+          await api(`/conversas/${b.dataset.parar}/parar`, { method: "POST" }).catch(() => {});
+          carregar();
+        })
+    );
+  };
+
+  const carregar = async () => {
+    clearTimeout(timer);
+    if (!document.body.contains(alvo)) return;
+    try {
+      dados = await api(`/atividades${clienteId ? `?cliente_id=${clienteId}` : ""}`);
+      base = Date.now();
+      desenhar();
+    } catch {}
+    timer = setTimeout(carregar, dados?.andamento.length ? 2500 : 10000);
+  };
+  // relógio dos itens em andamento
+  const relogio = setInterval(() => {
+    alvo.querySelectorAll("[data-seg]").forEach((el) => {
+      if (el.dataset.seg === "") return;
+      el.textContent = duracaoTxt(Number(el.dataset.seg) + Math.round((Date.now() - base) / 1000));
+    });
+  }, 1000);
+  estado.timers.push({ clear: () => clearTimeout(timer) }, relogio);
+  await carregar();
 }
 
 async function verLog(id) {
@@ -1227,8 +1443,15 @@ function telaConta() {
       <label class="cheia">Nova senha <input name="nova" type="password" minlength="8" required autocomplete="new-password"></label>
       <p class="erro-msg cheia" id="erro" hidden></p>
       <div class="acoes cheia"><button class="btn primario">Trocar senha</button></div>
-    </form>`
+    </form>
+    <section class="card" style="max-width:560px;margin-top:18px">
+      <h3 style="margin-top:0">Notificações e app no celular</h3>
+      <p class="muted small">Instale o Spec Studio no celular: no <b>iPhone</b> (Safari) toque em Compartilhar → <b>Adicionar à Tela de Início</b>;
+      no <b>Android</b> (Chrome) toque no menu ⋮ → <b>Instalar app</b>. Depois abra pelo ícone e ative as notificações abaixo.</p>
+      ${botaoNotificacoesHtml()}
+    </section>`
   );
+  ligarBotaoNotificacoes(el, { sempre: true });
   el.querySelector("#f").onsubmit = async (e) => {
     e.preventDefault();
     try {
@@ -1247,6 +1470,21 @@ function telaConta() {
 async function iniciar() {
   estado.eu = await api("/eu");
   estado.config = await api("/config");
+  registrarSW();
+  if (!estado.contador) {
+    const tic = async () => {
+      if (!estado.eu || document.hidden) return;
+      const r = await api("/atividades/contagem").catch(() => null);
+      const el = document.getElementById("contador-atv");
+      if (r && el) {
+        el.hidden = !r.andamento;
+        el.textContent = r.andamento;
+      }
+    };
+    estado.tic = tic;
+    estado.contador = setInterval(tic, 8000);
+    tic();
+  }
 }
 
 async function rota() {

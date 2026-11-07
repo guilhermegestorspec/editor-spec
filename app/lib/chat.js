@@ -5,10 +5,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { db, DATA_DIR, ROOT } from "./db.js";
 import * as storage from "./storage.js";
+import * as push from "./push.js";
+import { CPUS, RAM_GB, MAQUINA_PEQUENA, avisosMemoria } from "./recursos.js";
 
 const MODELO = process.env.CLAUDE_MODEL || "claude-opus-5-5";
 const ORCAMENTO = Number(process.env.IA_ORCAMENTO_USD || 5); // por mensagem
-const SIMULTANEAS = Number(process.env.IA_CONVERSAS_SIMULTANEAS || 2);
+// Em máquina com pouca RAM, dois agentes renderizando ao mesmo tempo estouram a memória.
+const SIMULTANEAS = Number(process.env.IA_CONVERSAS_SIMULTANEAS || (MAQUINA_PEQUENA ? 1 : 2));
+// "rapido": direto ao ponto (padrão). "detalhado": pensa mais antes de agir.
+const ESFORCO = { rapido: process.env.IA_ESFORCO_RAPIDO || "medium", detalhado: process.env.IA_ESFORCO_DETALHADO || "high" };
 const CONFIG_CLAUDE = path.join(DATA_DIR, "claude"); // sessões do SDK sobrevivem a reinícios (com disco)
 
 db.exec(`
@@ -32,8 +37,44 @@ CREATE TABLE IF NOT EXISTS mensagens (
   criado_em TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_mensagens_conversa ON mensagens(conversa_id, id);
+-- cada pedido ao assistente (um turno): o que está sendo feito, tokens e custo
+CREATE TABLE IF NOT EXISTS turnos (
+  id INTEGER PRIMARY KEY,
+  conversa_id INTEGER NOT NULL REFERENCES conversas(id) ON DELETE CASCADE,
+  cliente_id INTEGER NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  pedido TEXT NOT NULL DEFAULT '',
+  modo TEXT NOT NULL DEFAULT 'rapido',
+  status TEXT NOT NULL DEFAULT 'na_fila',   -- na_fila | rodando | ok | erro | cancelado
+  etapa TEXT NOT NULL DEFAULT '',
+  etapas INTEGER NOT NULL DEFAULT 0,
+  tokens_entrada INTEGER NOT NULL DEFAULT 0,
+  tokens_cache INTEGER NOT NULL DEFAULT 0,
+  tokens_saida INTEGER NOT NULL DEFAULT 0,
+  custo REAL NOT NULL DEFAULT 0,
+  entregas INTEGER NOT NULL DEFAULT 0,
+  criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+  iniciado_em TEXT,
+  terminado_em TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_turnos_status ON turnos(status, id);
 `);
-db.prepare("UPDATE conversas SET status = 'ociosa' WHERE status <> 'ociosa'").run(); // reinício no meio de um turno
+{
+  const cols = db.prepare("PRAGMA table_info(conversas)").all().map((c) => c.name);
+  if (!cols.includes("custo_sessao")) db.exec("ALTER TABLE conversas ADD COLUMN custo_sessao REAL NOT NULL DEFAULT 0");
+  if (!cols.includes("uso_sessao")) db.exec("ALTER TABLE conversas ADD COLUMN uso_sessao TEXT");
+}
+// Reinício no meio de um turno (deploy ou falta de memória): avisa na conversa e libera.
+for (const c of db.prepare("SELECT id FROM conversas WHERE status IN ('rodando','na_fila')").all()) {
+  db.prepare("INSERT INTO mensagens (conversa_id, papel, texto) VALUES (?, 'erro', ?)").run(
+    c.id,
+    "O servidor reiniciou no meio deste trabalho. Mande “continue” para o assistente retomar de onde parou."
+  );
+}
+db.prepare("UPDATE conversas SET status = 'ociosa' WHERE status <> 'ociosa'").run();
+db.prepare(
+  "UPDATE turnos SET status = 'erro', etapa = 'Servidor reiniciou durante o trabalho', terminado_em = datetime('now') WHERE status IN ('rodando','na_fila')"
+).run();
 
 export const MEMORIA_MODELO = (cl) => `# Memória do cliente: ${cl.nome}
 
@@ -92,7 +133,14 @@ export function lerConversa(id, desde = 0) {
   const c = db.prepare("SELECT * FROM conversas WHERE id = ?").get(id);
   if (!c) return null;
   const msgs = db.prepare("SELECT id, papel, texto, dados, criado_em FROM mensagens WHERE conversa_id = ? AND id > ? ORDER BY id").all(id, desde);
-  return { conversa: c, mensagens: msgs.map((m) => ({ ...m, dados: m.dados ? JSON.parse(m.dados) : null })) };
+  const turno = db
+    .prepare(
+      `SELECT status, etapa, modo, tokens_entrada + tokens_cache + tokens_saida AS tokens, custo,
+              CAST(strftime('%s','now') - strftime('%s', COALESCE(iniciado_em, criado_em)) AS INTEGER) AS decorrido
+       FROM turnos WHERE conversa_id = ? ORDER BY id DESC LIMIT 1`
+    )
+    .get(id);
+  return { conversa: c, turno, mensagens: msgs.map((m) => ({ ...m, dados: m.dados ? JSON.parse(m.dados) : null })) };
 }
 
 export function excluirConversa(id) {
@@ -104,7 +152,8 @@ export function excluirConversa(id) {
 export function parar(id) {
   const i = fila.findIndex((f) => f.conversaId === id);
   if (i >= 0) {
-    fila.splice(i, 1);
+    const [f] = fila.splice(i, 1);
+    db.prepare("UPDATE turnos SET status = 'cancelado', terminado_em = datetime('now') WHERE id = ?").run(f.turnoId);
     db.prepare("UPDATE conversas SET status = 'ociosa' WHERE id = ?").run(id);
     addMsg(id, "erro", "Pedido cancelado antes de começar.");
   }
@@ -113,7 +162,7 @@ export function parar(id) {
 }
 
 // Recebe uma mensagem da pessoa e agenda o turno do assistente.
-export function enviarMensagem({ conversaId, texto, arquivoIds = [], user }) {
+export function enviarMensagem({ conversaId, texto, arquivoIds = [], user, modo = "rapido" }) {
   const c = db.prepare("SELECT * FROM conversas WHERE id = ?").get(conversaId);
   if (!c) throw new Error("Conversa não encontrada.");
   if (c.status !== "ociosa") throw new Error("O assistente ainda está trabalhando nesta conversa. Aguarde ou clique em Parar.");
@@ -126,7 +175,13 @@ export function enviarMensagem({ conversaId, texto, arquivoIds = [], user }) {
     db.prepare("UPDATE conversas SET titulo = ? WHERE id = ?").run(t.length > 60 ? t.slice(0, 57) + "…" : t, conversaId);
   }
   db.prepare("UPDATE conversas SET status = 'na_fila' WHERE id = ?").run(conversaId);
-  fila.push({ conversaId, texto, anexos, userId: user.id });
+  if (!ESFORCO[modo]) modo = "rapido";
+  const turnoId = Number(
+    db
+      .prepare("INSERT INTO turnos (conversa_id, cliente_id, user_id, pedido, modo, etapa) VALUES (?,?,?,?,?,?)")
+      .run(conversaId, c.cliente_id, user.id, texto.slice(0, 500), modo, ativos.size >= SIMULTANEAS ? "Aguardando outra conversa terminar" : "Começando").lastInsertRowid
+  );
+  fila.push({ conversaId, texto, anexos, userId: user.id, turnoId, modo });
   setImmediate(proximo);
 }
 
@@ -144,7 +199,7 @@ function resumoFerramenta(b) {
   return `${nomes[b.name] || b.name} ${String(alvo).replace(/\s+/g, " ").slice(0, 160)}`.trim();
 }
 
-async function executarTurno({ conversaId, texto, anexos, userId }) {
+async function executarTurno({ conversaId, texto, anexos, userId, turnoId, modo = "rapido" }) {
   const c = db.prepare("SELECT * FROM conversas WHERE id = ?").get(conversaId);
   if (!c) return;
   const cliente = db.prepare("SELECT * FROM clientes WHERE id = ?").get(c.cliente_id);
@@ -156,6 +211,10 @@ async function executarTurno({ conversaId, texto, anexos, userId }) {
   fs.copyFileSync(path.join(ROOT, "CLAUDE.md"), path.join(dir, "CLAUDE.md"));
 
   db.prepare("UPDATE conversas SET status = 'rodando' WHERE id = ?").run(conversaId);
+  db.prepare("UPDATE turnos SET status = 'rodando', etapa = 'Preparando', iniciado_em = datetime('now') WHERE id = ?").run(turnoId);
+  const etapa = (t) => db.prepare("UPDATE turnos SET etapa = ?, etapas = etapas + 1 WHERE id = ?").run(String(t).slice(0, 200), turnoId);
+  const inicioMemoria = Date.now();
+  let resultadoFinal = "ok";
   let abort = new AbortController();
   let q = null;
   let cancelado = false;
@@ -181,6 +240,7 @@ async function executarTurno({ conversaId, texto, anexos, userId }) {
       const destino = path.join(entrada, `${arq.id}-${arq.nome}`);
       if (!fs.existsSync(destino)) {
         addMsg(conversaId, "atividade", `Preparando o arquivo ${arq.nome}`);
+        etapa(`Baixando ${arq.nome} do Drive`);
         const local = await storage.paraLocal(arq, dir);
         if (local.startsWith(dir)) fs.renameSync(local, destino);
         else fs.symlinkSync(local, destino);
@@ -250,6 +310,16 @@ REFERÊNCIAS DE REDES SOCIAIS (Instagram, Facebook, YouTube, TikTok…)
   trilha/efeitos, CTA e o que adaptar para o cliente.
 - Se a rede bloquear o download (comum em servidores), diga isso e peça o vídeo como arquivo.
 
+AGILIDADE (prioridade: entregar rápido e bem feito, sem rodeios)
+- Pedido claro = execute direto. Só pergunte quando faltar algo que muda o resultado. Não descreva planos longos antes de agir.
+- Consulte só a parte da skill que precisa (não leia skills inteiras nem a documentação toda) e rode comandos independentes em paralelo.
+- Vídeo: prefira UMA passada de FFmpeg (cortes, reenquadre, legenda queimada, trilha, loudnorm) com -preset veryfast -crf 21.
+  Use Remotion/HyperFrames só quando o pedido pedir animação/motion de verdade, e então renderize com --concurrency=${Math.max(1, Math.min(CPUS, MAQUINA_PEQUENA ? 1 : CPUS))}
+  e no máximo 1080p. Confira o resultado com 3–4 quadros extraídos, não assistindo/renderizando de novo.
+- Legendas: Whisper "small" (rápido); "large-v3" só se pedirem precisão máxima. Transcreva uma vez e reaproveite o .srt/.words.json.
+- Trabalhe com proxies: se o bruto for 4K/HEVC (iPhone), converta antes para 1080p H.264 e use essa cópia em tudo.
+- MÁQUINA: ${CPUS} CPU(s) e ${RAM_GB} GB de RAM. ${MAQUINA_PEQUENA ? "Pouca memória: NUNCA rode dois processos pesados ao mesmo tempo (render + Whisper, dois FFmpeg, Chrome + LibreOffice). " : ""}Se um processo for encerrado por falta de memória, refaça com menos paralelismo/resolução menor em vez de repetir igual.
+
 COMO TRABALHAR
 - Seja proativo como um bom estrategista: aponte riscos, oportunidades e o próximo passo, sem enrolar.
 - Se faltar algo que muda o resultado (objetivo, verba, formato, público, prazo), pergunte antes de executar trabalho pesado.
@@ -275,31 +345,75 @@ COMO TRABALHAR
       allowDangerouslySkipPermissions: true,
       maxTurns: Number(process.env.IA_MAX_TURNOS || 80),
       maxBudgetUsd: ORCAMENTO,
+      effort: ESFORCO[modo] || ESFORCO.rapido,
       abortController: abort,
       env: { ...process.env, CLAUDE_CONFIG_DIR: CONFIG_CLAUDE, SPEC_CLIENTE_ID: String(c.cliente_id), DATA_DIR },
       ...(resume ? { resume } : {}),
     });
 
+    // Tokens e custo: ao vivo pelas mensagens do modelo; no fim, o total oficial do SDK.
+    // O total do SDK é acumulado na sessão (inclui turnos anteriores ao retomar), então guardamos a diferença.
     const rodar = async (resume, textoPrompt) => {
       q = query({ prompt: textoPrompt, options: opcoes(resume) });
-      let custo = 0;
+      const porMensagem = new Map();
+      let ultimaGravacao = 0;
+      const gravarAoVivo = (forcar) => {
+        if (!forcar && Date.now() - ultimaGravacao < 2000) return;
+        ultimaGravacao = Date.now();
+        let ent = 0, cache = 0, sai = 0;
+        for (const u of porMensagem.values()) {
+          ent += u.input_tokens || 0;
+          cache += (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
+          sai += u.output_tokens || 0;
+        }
+        db.prepare("UPDATE turnos SET tokens_entrada = ?, tokens_cache = ?, tokens_saida = ? WHERE id = ?").run(ent, cache, sai, turnoId);
+      };
       for await (const m of q) {
         if (m.type === "system" && m.subtype === "init" && m.session_id) {
           db.prepare("UPDATE conversas SET sessao = ? WHERE id = ?").run(m.session_id, conversaId);
+          etapa("Pensando");
         } else if (m.type === "assistant") {
+          if (m.message?.id && m.message.usage) porMensagem.set(m.message.id, m.message.usage);
           for (const b of m.message?.content || []) {
-            if (b.type === "text" && b.text.trim()) addMsg(conversaId, "assistente", b.text.trim());
-            if (b.type === "tool_use") addMsg(conversaId, "atividade", resumoFerramenta(b));
+            if (b.type === "text" && b.text.trim()) {
+              addMsg(conversaId, "assistente", b.text.trim());
+              etapa("Escrevendo a resposta");
+            }
+            if (b.type === "tool_use") {
+              const r = resumoFerramenta(b);
+              addMsg(conversaId, "atividade", r);
+              etapa(m.parent_tool_use_id ? `Subtarefa: ${r}` : r);
+            }
           }
+          gravarAoVivo(false);
         } else if (m.type === "result") {
-          custo = m.total_cost_usd || 0;
+          const ant = db.prepare("SELECT custo_sessao, uso_sessao FROM conversas WHERE id = ?").get(conversaId);
+          const base = resume ? { custo: ant.custo_sessao || 0, ...(ant.uso_sessao ? JSON.parse(ant.uso_sessao) : {}) } : { custo: 0 };
+          const total = { custo: m.total_cost_usd || 0, ent: 0, cache: 0, sai: 0 };
+          for (const u of Object.values(m.modelUsage || {})) {
+            total.ent += u.inputTokens || 0;
+            total.cache += (u.cacheReadInputTokens || 0) + (u.cacheCreationInputTokens || 0);
+            total.sai += u.outputTokens || 0;
+          }
+          const dif = (k) => (total[k] >= (base[k] || 0) ? total[k] - (base[k] || 0) : total[k]);
+          if (total.ent + total.cache + total.sai > 0) {
+            db.prepare("UPDATE turnos SET tokens_entrada = ?, tokens_cache = ?, tokens_saida = ?, custo = custo + ? WHERE id = ?").run(
+              dif("ent"), dif("cache"), dif("sai"), dif("custo"), turnoId
+            );
+          } else {
+            gravarAoVivo(true);
+            db.prepare("UPDATE turnos SET custo = custo + ? WHERE id = ?").run(dif("custo"), turnoId);
+          }
+          db.prepare("UPDATE conversas SET custo = custo + ?, custo_sessao = ?, uso_sessao = ? WHERE id = ?").run(
+            dif("custo"), total.custo, JSON.stringify({ ent: total.ent, cache: total.cache, sai: total.sai }), conversaId
+          );
           if (m.subtype !== "success" && !cancelado) {
+            resultadoFinal = "erro";
             const motivo = { error_max_turns: "limite de etapas", error_max_budget_usd: "limite de custo por mensagem" }[m.subtype] || m.subtype;
             addMsg(conversaId, "erro", `O assistente parou antes de terminar (${motivo}). Você pode pedir para ele continuar.`);
           }
         }
       }
-      db.prepare("UPDATE conversas SET custo = custo + ? WHERE id = ?").run(custo, conversaId);
     };
 
     try {
@@ -314,6 +428,7 @@ COMO TRABALHAR
         .map((m) => `${m.papel === "usuario" ? "Equipe" : "Você"}: ${m.texto.slice(0, 1500)}`)
         .join("\n\n");
       abort = new AbortController();
+      etapa("Retomando a conversa");
       await rodar(null, `Histórico desta conversa (continue a partir dele):\n\n${hist}\n\n---\nNova mensagem da equipe:\n${prompt}`);
     }
 
@@ -329,6 +444,7 @@ COMO TRABALHAR
       ids.push(await registrarArquivo({ clienteId: c.cliente_id, pasta, origemPath: copia, nome: f, origem: "assistente IA", userId }));
     }
     if (ids.length) addMsg(conversaId, "arquivos", "", { ids });
+    db.prepare("UPDATE turnos SET entregas = ? WHERE id = ?").run(ids.length, turnoId);
     // memória atualizada pelo agente volta para o banco (e para o backup no Drive)
     const memoriaDepois = fs.existsSync(arqMemoria) ? fs.readFileSync(arqMemoria, "utf8") : memoriaAntes;
     if (memoriaDepois.trim() && memoriaDepois !== memoriaAntes) {
@@ -336,11 +452,28 @@ COMO TRABALHAR
       addMsg(conversaId, "atividade", "Memória do cliente atualizada");
     }
     if (cancelado) addMsg(conversaId, "erro", "Você interrompeu o assistente.");
+    const mortos = avisosMemoria.filter((a) => a.quando >= inicioMemoria);
+    if (mortos.length) addMsg(conversaId, "atividade", `Proteção de memória acionada ${mortos.length}x (um processo pesado foi encerrado para o servidor não cair)`);
   } catch (e) {
+    resultadoFinal = "erro";
     console.error(`[chat ${conversaId}]`, e);
     addMsg(conversaId, "erro", cancelado ? "Você interrompeu o assistente." : `Erro: ${String(e.message || e).slice(0, 400)}`);
   } finally {
     ativos.delete(conversaId);
     db.prepare("UPDATE conversas SET status = 'ociosa' WHERE id = ?").run(conversaId);
+    const final = cancelado ? "cancelado" : resultadoFinal;
+    db.prepare("UPDATE turnos SET status = ?, etapa = ?, terminado_em = datetime('now') WHERE id = ?").run(
+      final, { ok: "Concluído", erro: "Parou com erro", cancelado: "Interrompido" }[final], turnoId
+    );
+    if (!cancelado) {
+      const t = db.prepare("SELECT t.entregas, c.titulo, cl.nome FROM turnos t JOIN conversas c ON c.id = t.conversa_id JOIN clientes cl ON cl.id = t.cliente_id WHERE t.id = ?").get(turnoId);
+      const resp = db.prepare("SELECT texto FROM mensagens WHERE conversa_id = ? AND papel = 'assistente' ORDER BY id DESC LIMIT 1").get(conversaId)?.texto || "";
+      push.notificar(userId, {
+        titulo: `${final === "ok" ? "✅" : "⚠️"} ${t?.nome || "Cliente"}: ${final === "ok" ? "assistente terminou" : "assistente parou"}`,
+        corpo: (t?.entregas ? `${t.entregas} arquivo(s) entregue(s). ` : "") + resp.replace(/[#*_`>]/g, "").replace(/\s+/g, " ").slice(0, 180),
+        url: `/#/cliente/${c.cliente_id}/ia/${conversaId}`,
+        tag: `conversa-${conversaId}`,
+      }).catch(() => {});
+    }
   }
 }

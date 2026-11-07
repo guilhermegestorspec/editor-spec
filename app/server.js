@@ -13,6 +13,8 @@ import { enfileirar, validarParams, registrarArquivo, nomeSeguro, retomarFila } 
 import * as storage from "./lib/storage.js";
 import { agendarBackups } from "./lib/backup.js";
 import * as chat from "./lib/chat.js";
+import * as push from "./lib/push.js";
+import { vigiarMemoria, resumoMaquina } from "./lib/recursos.js";
 import { FORMATOS_VIDEO, FORMATOS_GRAFICO, MODELOS_WHISPER } from "./lib/presets.js";
 
 const app = express();
@@ -426,6 +428,95 @@ app.get("/api/tarefas/:id", exigirLogin, (req, res) => {
   res.json(t);
 });
 
+// ---------- painel de atividades: o que está rodando agora (IA + tarefas), tokens e concluídos ----------
+function etapaDoLog(log) {
+  const linhas = String(log || "").replace(/\r/g, "\n").split("\n").map((l) => l.trim()).filter(Boolean);
+  return (linhas.at(-1) || "").slice(0, 200);
+}
+
+app.get("/api/atividades", exigirLogin, (req, res) => {
+  const cid = id(req.query.cliente_id);
+  const filtroT = cid ? "AND t.cliente_id = ?" : "";
+  const args = cid ? [cid] : [];
+  const turnos = (cond, lim) =>
+    db
+      .prepare(
+        `SELECT t.*, cl.nome AS cliente, cv.titulo AS conversa, u.nome AS autor,
+                CAST(strftime('%s','now') - strftime('%s', COALESCE(t.iniciado_em, t.criado_em)) AS INTEGER) AS decorrido,
+                CAST(strftime('%s', t.terminado_em) - strftime('%s', COALESCE(t.iniciado_em, t.criado_em)) AS INTEGER) AS duracao
+         FROM turnos t JOIN clientes cl ON cl.id = t.cliente_id JOIN conversas cv ON cv.id = t.conversa_id LEFT JOIN users u ON u.id = t.user_id
+         WHERE ${cond} ${filtroT} ORDER BY t.id DESC LIMIT ${lim}`
+      )
+      .all(...args)
+      .map((t) => ({
+        fonte: "ia", id: t.id, conversa_id: t.conversa_id, cliente_id: t.cliente_id, cliente: t.cliente, titulo: t.pedido || t.conversa,
+        tipo: "ia", modo: t.modo, status: t.status, etapa: t.etapa, etapas: t.etapas, autor: t.autor,
+        tokens: { entrada: t.tokens_entrada, cache: t.tokens_cache, saida: t.tokens_saida, total: t.tokens_entrada + t.tokens_cache + t.tokens_saida },
+        custo: t.custo, entregas: t.entregas, criado_em: t.criado_em, terminado_em: t.terminado_em, decorrido: t.decorrido, duracao: t.duracao,
+      }));
+  const tarefas = (cond, lim) =>
+    db
+      .prepare(
+        `SELECT t.id, t.cliente_id, cl.nome AS cliente, t.tipo, t.params, t.status, t.resultado, t.criado_em, t.terminado_em, u.nome AS autor,
+                substr(t.log, -600) AS fim_log,
+                CAST(strftime('%s','now') - strftime('%s', t.criado_em) AS INTEGER) AS decorrido,
+                CAST(strftime('%s', t.terminado_em) - strftime('%s', t.criado_em) AS INTEGER) AS duracao
+         FROM tarefas t LEFT JOIN clientes cl ON cl.id = t.cliente_id LEFT JOIN users u ON u.id = t.criado_por
+         WHERE ${cond} ${filtroT} ORDER BY t.id DESC LIMIT ${lim}`
+      )
+      .all(...args)
+      .map((t) => ({
+        fonte: "tarefa", id: t.id, cliente_id: t.cliente_id, cliente: t.cliente, tipo: t.tipo, params: t.params, status: t.status,
+        etapa: t.status === "rodando" ? etapaDoLog(t.fim_log) : "", autor: t.autor, resultado: t.resultado,
+        criado_em: t.criado_em, terminado_em: t.terminado_em, decorrido: t.decorrido, duracao: t.duracao,
+      }));
+  const ordem = (a, b) => (b.terminado_em || b.criado_em).localeCompare(a.terminado_em || a.criado_em);
+  const andamento = [...turnos("t.status IN ('rodando','na_fila')", 50), ...tarefas("t.status IN ('rodando','na_fila')", 50)].sort(
+    (a, b) => (a.status === b.status ? 0 : a.status === "rodando" ? -1 : 1)
+  );
+  const concluidos = [...turnos("t.status NOT IN ('rodando','na_fila')", 60), ...tarefas("t.status NOT IN ('rodando','na_fila')", 60)].sort(ordem).slice(0, 80);
+  const hoje = db
+    .prepare(
+      `SELECT COUNT(*) AS pedidos, COALESCE(SUM(tokens_entrada + tokens_cache + tokens_saida), 0) AS tokens, COALESCE(SUM(custo), 0) AS custo
+       FROM turnos t WHERE date(t.criado_em) = date('now') ${filtroT}`
+    )
+    .get(...args);
+  const mes = db
+    .prepare(
+      `SELECT COALESCE(SUM(tokens_entrada + tokens_cache + tokens_saida), 0) AS tokens, COALESCE(SUM(custo), 0) AS custo
+       FROM turnos t WHERE strftime('%Y-%m', t.criado_em) = strftime('%Y-%m', 'now') ${filtroT}`
+    )
+    .get(...args);
+  res.json({ andamento, concluidos, hoje, mes, maquina: resumoMaquina() });
+});
+
+// contador leve para o menu lateral
+app.get("/api/atividades/contagem", exigirLogin, (req, res) => {
+  const n =
+    db.prepare("SELECT COUNT(*) n FROM turnos WHERE status IN ('rodando','na_fila')").get().n +
+    db.prepare("SELECT COUNT(*) n FROM tarefas WHERE status IN ('rodando','na_fila')").get().n;
+  res.json({ andamento: n });
+});
+
+// ---------- notificações (Web Push) ----------
+app.get("/api/push", exigirLogin, (req, res) => res.json({ chave: push.chavePublica(), aparelhos: push.inscricoes(req.user.id) }));
+app.post("/api/push", exigirLogin, (req, res) => {
+  try {
+    push.inscrever(req.user.id, req.body.inscricao, req.body.aparelho);
+  } catch (e) {
+    return erro(res, 400, e.message);
+  }
+  res.json({ ok: true });
+});
+app.delete("/api/push", exigirLogin, (req, res) => {
+  push.cancelar(req.user.id, String(req.body.endpoint || ""));
+  res.json({ ok: true });
+});
+app.post("/api/push/teste", exigirLogin, async (req, res) => {
+  await push.notificar(req.user.id, { titulo: "🔔 Spec Studio", corpo: "Notificações ativadas! Você vai ser avisado quando as tarefas terminarem.", url: "/#/tarefas" });
+  res.json({ ok: true });
+});
+
 // ---------- memória do cliente (lida e atualizada pelo agente; editável pela equipe) ----------
 app.get("/api/clientes/:id/memoria", exigirLogin, (req, res) => {
   const c = clienteOu404(req, res);
@@ -476,7 +567,7 @@ app.post("/api/conversas/:conversa/mensagens", exigirLogin, (req, res) => {
   if (texto.length > 20000) return erro(res, 400, "Mensagem muito longa.");
   const arquivoIds = (Array.isArray(req.body.arquivo_ids) ? req.body.arquivo_ids : []).map(Number).filter(Number.isInteger).slice(0, 30);
   try {
-    chat.enviarMensagem({ conversaId: c.id, texto, arquivoIds, user: req.user });
+    chat.enviarMensagem({ conversaId: c.id, texto, arquivoIds, user: req.user, modo: req.body.modo === "detalhado" ? "detalhado" : "rapido" });
   } catch (e) {
     return erro(res, 409, e.message);
   }
@@ -532,6 +623,7 @@ try {
   console.error("Falha ao preparar o Google Drive:", e.message);
   process.exit(1);
 }
+vigiarMemoria();
 agendarBackups({ db, dataDir: DATA_DIR, pastaSistema: storage.pastaSistema });
 storage.retomarEnviosDrive();
 retomarFila();
