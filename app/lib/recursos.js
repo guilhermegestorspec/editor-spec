@@ -75,11 +75,13 @@ export function vigiarMemoria() {
       process.kill(alvo.pid, "SIGKILL");
       const msg = `Memória quase no limite (${RAM_GB} GB): processo encerrado para proteger o servidor — ${alvo.cmd.slice(0, 120)} (${Math.round(alvo.rss / 1e6)} MB)`;
       console.warn("[memória]", msg);
-      avisosMemoria.push({ quando: Date.now(), msg });
+      avisosMemoria.push({ quando: Date.now(), msg, pid: alvo.pid });
       if (avisosMemoria.length > 20) avisosMemoria.shift();
     } catch {}
   }, 1500).unref();
 }
+
+export const mortoPorMemoria = (pid) => avisosMemoria.some((a) => a.pid === pid);
 
 export function resumoMaquina() {
   return { cpus: CPUS, ram_gb: RAM_GB };

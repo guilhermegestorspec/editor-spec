@@ -7,10 +7,14 @@ import { FORMATOS_VIDEO, FORMATOS_GRAFICO, MODELOS_WHISPER } from "./presets.js"
 import { rodarAgente } from "./agent.js";
 import * as storage from "./storage.js";
 import * as push from "./push.js";
+import { MAQUINA_PEQUENA, avisosMemoria } from "./recursos.js";
 
 const PY = process.env.PYTHON || "python3";
 const BIN = path.join(ROOT, "node_modules", ".bin");
-const CONCORRENCIA = Number(process.env.TAREFAS_SIMULTANEAS || 1);
+// Tarefas rodam em paralelo (sem fila de uma por vez). Se a memória apertar, o vigia encerra o processo
+// pesado e a tarefa é refeita sozinha um pouco depois.
+const CONCORRENCIA = Number(process.env.TAREFAS_SIMULTANEAS || (MAQUINA_PEQUENA ? 4 : 8));
+const aguardando = new Map(); // id -> horário a partir do qual pode recomeçar
 const MAX_LOG = 40_000;
 
 export const TIPOS = ["cortar", "exportar", "legendar", "baixar", "grafico", "ia"];
@@ -110,12 +114,22 @@ function anexarLog(id, texto) {
   ).run(texto, id);
 }
 
-async function proxima() {
-  if (rodando >= CONCORRENCIA) return;
-  const t = db.prepare("SELECT * FROM tarefas WHERE status='na_fila' ORDER BY id LIMIT 1").get();
-  if (!t) return;
-  rodando++;
-  db.prepare("UPDATE tarefas SET status='rodando' WHERE id=?").run(t.id);
+function proxima() {
+  while (rodando < CONCORRENCIA) {
+    const agora = Date.now();
+    const t = db
+      .prepare("SELECT * FROM tarefas WHERE status='na_fila' ORDER BY id")
+      .all()
+      .find((x) => !(aguardando.get(x.id) > agora));
+    if (!t) return;
+    aguardando.delete(t.id);
+    rodando++;
+    db.prepare("UPDATE tarefas SET status='rodando' WHERE id=?").run(t.id);
+    rodarTarefa(t);
+  }
+}
+
+async function rodarTarefa(t) {
   const dir = path.join(DATA_DIR, "tarefas", String(t.id));
   fs.mkdirSync(dir, { recursive: true });
   const ctx = {
@@ -127,6 +141,7 @@ async function proxima() {
     log: (s) => anexarLog(t.id, s),
     saidas: [],
   };
+  let repetir = false;
   try {
     await EXECUTORES[t.tipo](ctx);
     db.prepare("UPDATE tarefas SET status='ok', resultado=?, terminado_em=datetime('now') WHERE id=?").run(
@@ -134,6 +149,16 @@ async function proxima() {
       t.id
     );
   } catch (e) {
+    const tentativa = Number(ctx.params._tentativa || 0);
+    if (e.memoria && tentativa < 2 && !ctx.saidas.length) {
+      // memória cheia com outras tarefas em paralelo: recomeça daqui a pouco, sem perder o pedido
+      ctx.log(`\nMemória cheia com outras tarefas rodando juntas. Recomeçando automaticamente em instantes…\n`);
+      db.prepare("UPDATE tarefas SET status='na_fila', params=? WHERE id=?").run(JSON.stringify({ ...ctx.params, _tentativa: tentativa + 1 }), t.id);
+      aguardando.set(t.id, Date.now() + 20e3 * (tentativa + 1));
+      setTimeout(proxima, 20e3 * (tentativa + 1) + 100).unref();
+      repetir = true;
+      return;
+    }
     ctx.log(`\nERRO: ${e.message}\n`);
     db.prepare("UPDATE tarefas SET status='erro', resultado=?, terminado_em=datetime('now') WHERE id=?").run(
       JSON.stringify({ arquivos: ctx.saidas, erro: e.message }),
@@ -141,6 +166,9 @@ async function proxima() {
     );
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
+    rodando--;
+    setImmediate(proxima);
+    if (repetir) return;
     const fim = db.prepare("SELECT t.status, c.nome FROM tarefas t LEFT JOIN clientes c ON c.id = t.cliente_id WHERE t.id = ?").get(t.id);
     const NOMES = { cortar: "Corte", exportar: "Exportação", legendar: "Legenda", baixar: "Download", grafico: "Peça gráfica", ia: "Tarefa de IA" };
     push.notificar(t.criado_por, {
@@ -149,8 +177,6 @@ async function proxima() {
       url: "/#/tarefas",
       tag: `tarefa-${t.id}`,
     }).catch(() => {});
-    rodando--;
-    setImmediate(proxima);
   }
 }
 
@@ -161,12 +187,19 @@ export function retomarFila() {
 function executar(ctx, cmd, args, opts = {}) {
   ctx.log(`\n$ ${cmd} ${args.map((a) => (/\s/.test(a) ? JSON.stringify(a) : a)).join(" ")}\n`);
   return new Promise((resolve, reject) => {
+    const inicio = Date.now();
     const p = spawn(cmd, args, { cwd: opts.cwd || ctx.dir, env: { ...process.env, ...opts.env } });
     const tratar = (b) => ctx.log(b.toString().replace(/\r/g, "\n"));
     p.stdout.on("data", tratar);
     p.stderr.on("data", tratar);
     p.on("error", reject);
-    p.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`${cmd} saiu com código ${code}`))));
+    p.on("close", (code, sinal) => {
+      if (code === 0) return resolve();
+      const e = new Error(sinal ? `${cmd} foi encerrado (${sinal})` : `${cmd} saiu com código ${code}`);
+      // o vigia pode ter encerrado o próprio processo ou um filho dele (ex.: o Chrome do Remotion)
+      if (avisosMemoria.some((a) => a.quando >= inicio)) e.memoria = true;
+      reject(e);
+    });
   });
 }
 
@@ -185,7 +218,7 @@ async function salvar(ctx, arquivoTemp, pasta, nome, origem) {
 }
 
 const base = (nome) => path.basename(nome, path.extname(nome));
-const H264 = ["-c:v", "libx264", "-crf", "18", "-preset", "medium", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart"];
+const H264 = ["-c:v", "libx264", "-crf", "20", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart"];
 
 // ---------- links públicos do Google Drive (arquivo ou pasta) ----------
 export const ehLinkDrive = (url) => /^https:\/\/(drive|docs)\.google\.com\//i.test(url) || /^https:\/\/drive\.usercontent\.google\.com\//i.test(url);

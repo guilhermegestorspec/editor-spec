@@ -53,7 +53,10 @@ Portal da equipe em `app/` (Node 22 + Express + SQLite embutido, sem build):
 - Assistente: modo ⚡ Rápido (effort `medium`, padrão) ou 🧠 Detalhado (`high`). Prompt com regras de agilidade
   (uma passada de FFmpeg, Remotion só para motion, proxies 1080p, sem processos pesados em paralelo).
 - Memória: `app/lib/recursos.js` lê o limite do container (cgroup) e mata o processo pesado da vez (Chrome/FFmpeg/Python)
-  ao passar de 90% da RAM, para o servidor não ser derrubado (oomKilled). Com ≤ 3 GB, só 1 conversa roda por vez.
+  ao passar de 90% da RAM, para o servidor não ser derrubado (oomKilled).
+- Paralelismo: tarefas e conversas rodam ao mesmo tempo, sem fila de uma por vez (padrão: 4 tarefas e 3 conversas com ≤ 3 GB;
+  8 e 6 em máquinas maiores; `TAREFAS_SIMULTANEAS` / `IA_CONVERSAS_SIMULTANEAS`). Tarefa interrompida pelo vigia de memória
+  recomeça sozinha (até 2 vezes). FFmpeg das tarefas em `-preset veryfast -crf 20`.
 - App no celular (PWA): `manifest.webmanifest`, `sw.js`, ícones em `marca/app-*.png`. Notificações Web Push
   (`app/lib/push.js`, chaves VAPID geradas e guardadas no banco) quando um pedido ao assistente ou uma tarefa termina;
   ativar em "Minha conta" ou no aviso da aba Tarefas. No iPhone exige o app adicionado à Tela de Início (iOS 16.4+).

@@ -11,7 +11,7 @@ import { CPUS, RAM_GB, MAQUINA_PEQUENA, avisosMemoria } from "./recursos.js";
 const MODELO = process.env.CLAUDE_MODEL || "claude-opus-5-5";
 const ORCAMENTO = Number(process.env.IA_ORCAMENTO_USD || 5); // por mensagem
 // Em máquina com pouca RAM, dois agentes renderizando ao mesmo tempo estouram a memória.
-const SIMULTANEAS = Number(process.env.IA_CONVERSAS_SIMULTANEAS || (MAQUINA_PEQUENA ? 1 : 2));
+const SIMULTANEAS = Number(process.env.IA_CONVERSAS_SIMULTANEAS || (MAQUINA_PEQUENA ? 3 : 6));
 // "rapido": direto ao ponto (padrão). "detalhado": pensa mais antes de agir.
 const ESFORCO = { rapido: process.env.IA_ESFORCO_RAPIDO || "medium", detalhado: process.env.IA_ESFORCO_DETALHADO || "high" };
 const CONFIG_CLAUDE = path.join(DATA_DIR, "claude"); // sessões do SDK sobrevivem a reinícios (com disco)
@@ -318,7 +318,7 @@ AGILIDADE (prioridade: entregar rápido e bem feito, sem rodeios)
   e no máximo 1080p. Confira o resultado com 3–4 quadros extraídos, não assistindo/renderizando de novo.
 - Legendas: Whisper "small" (rápido); "large-v3" só se pedirem precisão máxima. Transcreva uma vez e reaproveite o .srt/.words.json.
 - Trabalhe com proxies: se o bruto for 4K/HEVC (iPhone), converta antes para 1080p H.264 e use essa cópia em tudo.
-- MÁQUINA: ${CPUS} CPU(s) e ${RAM_GB} GB de RAM. ${MAQUINA_PEQUENA ? "Pouca memória: NUNCA rode dois processos pesados ao mesmo tempo (render + Whisper, dois FFmpeg, Chrome + LibreOffice). " : ""}Se um processo for encerrado por falta de memória, refaça com menos paralelismo/resolução menor em vez de repetir igual.
+- MÁQUINA: ${CPUS} CPU(s) e ${RAM_GB} GB de RAM. Outras demandas podem estar rodando em paralelo nesta mesma máquina: ${MAQUINA_PEQUENA ? "não rode dois processos pesados ao mesmo tempo dentro desta conversa (render + Whisper, dois FFmpeg, Chrome + LibreOffice) e " : ""}use no máximo ${Math.max(1, Math.floor(CPUS / 2))} thread(s) no FFmpeg (-threads). Se um processo for encerrado por falta de memória, refaça com menos paralelismo/resolução menor em vez de repetir igual.
 
 COMO TRABALHAR
 - Seja proativo como um bom estrategista: aponte riscos, oportunidades e o próximo passo, sem enrolar.
