@@ -80,6 +80,7 @@ const ic = {
   tesoura: svg('<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.6 7.6L20 18M8.6 16.4L20 6"/>'),
   formato: svg('<rect x="3" y="6" width="10" height="12" rx="1.5"/><rect x="15" y="3" width="6" height="18" rx="1.5"/>'),
   legenda: svg('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 15h4M13 15h4M7 11h10"/>'),
+  memoria: svg('<path d="M12 4a4 4 0 00-4 4 3.5 3.5 0 00-2 6.3V17a3 3 0 003 3h6a3 3 0 003-3v-2.7A3.5 3.5 0 0016 8a4 4 0 00-4-4z"/><path d="M12 4v16M8 11h2M14 13h2"/>'),
   ia: svg('<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/>'),
   mover: svg('<path d="M3 7h6l2 2h10v10a1 1 0 01-1 1H4a1 1 0 01-1-1z"/><path d="M12 13h5M15 11l2 2-2 2"/>'),
   link: svg('<path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/>'),
@@ -93,6 +94,7 @@ const PASTAS = [
   { id: "editados", nome: "Vídeos editados", desc: "Cortes, exportações, legendas e entregas finais." },
   { id: "graficos", nome: "Materiais gráficos", desc: "Posts, stories, thumbnails e banners." },
   { id: "referencias", nome: "Referências", desc: "Opcional: vídeos e imagens de inspiração (upload ou link)." },
+  { id: "documentos", nome: "Documentos", desc: "Planilhas de resultados (Meta Ads, Google Ads, CRM), relatórios, briefings, PDFs e apresentações." },
 ];
 const NOME_TAREFA = { cortar: "Corte", exportar: "Exportação", legendar: "Legendas", baixar: "Importação", grafico: "Peça gráfica", ia: "Assistente IA" };
 const STATUS = { na_fila: "Na fila", rodando: "Processando", ok: "Concluída", erro: "Erro" };
@@ -223,7 +225,7 @@ async function telaClientes() {
         ? `<div class="grade-clientes">${estado.clientes
             .map(
               (c) => `
-          <a class="card cliente-card" href="#/cliente/${c.id}/brutos">
+          <a class="card cliente-card" href="#/cliente/${c.id}/ia">
             <div class="inicial" style="background:${esc(c.cor_primaria)};color:${esc(c.cor_fundo)}">${esc(c.nome[0]).toUpperCase()}</div>
             <div><h3>${esc(c.nome)}</h3><p class="muted small">${esc(c.nicho || "Sem nicho definido")}</p></div>
             <div class="acoes" style="justify-content:space-between">
@@ -262,7 +264,7 @@ function formCliente(c = null) {
       const r = c ? await api(`/clientes/${c.id}`, { method: "PATCH", body }) : await api("/clientes", { method: "POST", body });
       d.close();
       if (c) rota();
-      else location.hash = `#/cliente/${r.id}/brutos`;
+      else location.hash = `#/cliente/${r.id}/ia`;
     } catch (err) {
       const el = d.querySelector("#erro");
       el.textContent = err.message;
@@ -283,8 +285,8 @@ async function telaCliente(id, aba, sub) {
   const arquivos = await api(`/clientes/${c.id}/arquivos`);
   const conta = (p) => arquivos.filter((a) => a.pasta === p).length;
   const abas = [
-    ...PASTAS.map((p) => [p.id, p.nome.replace("Materiais ", "").replace(/^\w/, (x) => x.toUpperCase()), conta(p.id)]),
     ["ia", "Assistente IA", null],
+    ...PASTAS.map((p) => [p.id, p.nome.replace("Materiais ", "").replace(/^\w/, (x) => x.toUpperCase()), conta(p.id)]),
     ["tarefas", "Tarefas", null],
   ];
   el.innerHTML = `
@@ -315,7 +317,7 @@ async function telaCliente(id, aba, sub) {
   if (PASTAS.some((p) => p.id === aba)) return abaPasta(alvo, c, aba, arquivos.filter((a) => a.pasta === aba));
   if (aba === "ia") return abaIA(alvo, c, arquivos, sub);
   if (aba === "tarefas") return listaTarefas(alvo, c.id);
-  location.hash = `#/cliente/${c.id}/brutos`;
+  location.hash = `#/cliente/${c.id}/ia`;
 }
 
 const urlArquivo = (a, baixar) => `/api/arquivos/${a.id}/conteudo${baixar ? "?baixar=1" : ""}`;
@@ -773,6 +775,9 @@ function markdownLeve(t) {
 }
 
 const SUGESTOES_CHAT = [
+  "Analise a planilha de resultados anexada (Meta Ads) e me diga o que está funcionando, o que pausar e onde escalar.",
+  "Monte um plano de conteúdo e anúncios para os próximos 30 dias, com ganchos e formatos.",
+  "Escreva 5 variações de copy para anúncio com ganchos diferentes para testar.",
   "Edite um anúncio de 30s para Reels (9:16) com o bruto anexado: cortes dinâmicos, legendas animadas e CTA no final.",
   "Corte os 3 melhores momentos do vídeo em Shorts de até 45s com legendas.",
   "Crie 3 criativos estáticos para Meta Ads (1:1, 4:5 e 9:16) com a identidade do cliente.",
@@ -793,6 +798,28 @@ async function abrirChatCom(c, a) {
   location.hash = `#/cliente/${c.id}/ia/${r.id}`;
 }
 
+async function editarMemoria(c) {
+  const r = await api(`/clientes/${c.id}/memoria`);
+  const d = modal(
+    `Memória do cliente · ${c.nome}`,
+    `<p class="muted small">O que o agente sabe sobre ${esc(c.nome)}: negócio, público, tom de voz, campanhas, resultados e aprendizados.
+      Ele lê isto em toda conversa e atualiza sozinho quando aprende algo novo. A equipe também pode editar.</p>
+     <textarea id="mem" class="memoria-texto" spellcheck="false">${esc(r.memoria)}</textarea>
+     <div class="acoes"><button class="btn primario" id="salvar">Salvar memória</button>
+       ${r.vazia ? `<span class="muted small">Modelo inicial — preencha o que já souber.</span>` : ""}</div>`,
+    { largo: true }
+  );
+  d.querySelector("#salvar").onclick = async () => {
+    try {
+      await api(`/clientes/${c.id}/memoria`, { method: "PUT", body: { memoria: d.querySelector("#mem").value } });
+      d.close();
+      toast("Memória salva.");
+    } catch (e) {
+      toast(e.message, true);
+    }
+  };
+}
+
 async function abaIA(alvo, c, arquivos, conversaId) {
   if (!estado.config.iaAtiva) {
     alvo.innerHTML = `<div class="vazio"><img src="marca/icone-verde.svg" alt=""><h3>Assistente IA desativado</h3><p>O administrador precisa configurar <code>ANTHROPIC_API_KEY</code> no servidor.</p></div>`;
@@ -803,7 +830,10 @@ async function abaIA(alvo, c, arquivos, conversaId) {
   alvo.innerHTML = `
   <div class="chat-layout">
     <aside class="chat-lista">
-      <button class="btn primario" id="nova-conversa">${ic.mais} Nova conversa</button>
+      <div class="chat-lista-topo">
+        <button class="btn primario" id="nova-conversa">${ic.mais} Nova conversa</button>
+        <button class="btn" id="memoria">${ic.memoria} Memória do cliente</button>
+      </div>
       <div class="chat-itens">${
         conversas.length
           ? conversas
@@ -826,12 +856,14 @@ async function abaIA(alvo, c, arquivos, conversaId) {
       toast(e.message, true);
     }
   };
+  alvo.querySelector("#memoria").onclick = () => editarMemoria(c);
   const painel = alvo.querySelector("#chat");
   if (!atual) {
     painel.innerHTML = `<div class="chat-boasvindas"><img src="marca/icone-verde.svg" alt="">
-      <h2>Assistente de ${esc(c.nome)}</h2>
-      <p class="muted">Peça vídeos, cortes, legendas, criativos para Meta Ads, YouTube e outros formatos, ou mande referências para análise.
-      Ele conhece a marca do cliente e usa todas as ferramentas do Spec Studio.</p>
+      <h2>Agente de performance de ${esc(c.nome)}</h2>
+      <p class="muted">Converse como você conversa com um estrategista da equipe: análise de campanhas e planilhas de resultados,
+      plano de mídia, roteiros, copies, criativos, edição de vídeo, relatórios e apresentações.
+      Ele lembra do cliente entre as conversas (Memória do cliente) e tem acesso a toda a biblioteca.</p>
       <button class="btn primario" id="comecar">${ic.mais} Começar uma conversa</button></div>`;
     painel.querySelector("#comecar").onclick = () => alvo.querySelector("#nova-conversa").click();
     return;
@@ -917,12 +949,17 @@ async function chatConversa(painel, c, arquivos, conversaId) {
   painel.querySelector("#up-chat").onchange = (e) => {
     const files = [...e.target.files];
     e.target.value = "";
-    toast(`Enviando ${files.length} arquivo(s) para Brutos; eles entram como anexo quando terminarem.`);
-    enfileirarEnvios(c, "brutos", files, (id, nome) => {
+    const midiaRe = /\.(mp4|mov|m4v|webm|mkv|avi|png|jpe?g|webp|gif|heic|mp3|wav|m4a|aac|flac|ogg)$/i;
+    const midias = files.filter((f) => midiaRe.test(f.name));
+    const docs = files.filter((f) => !midiaRe.test(f.name));
+    toast(`Enviando ${files.length} arquivo(s); entram como anexo quando terminarem.`);
+    const anexar = (pasta) => (id, nome) => {
       if (!document.body.contains(painel)) return;
-      st.anexos.push({ id, nome, pasta: "brutos", tipo: "" });
+      st.anexos.push({ id, nome, pasta, tipo: "" });
       desenharChips();
-    });
+    };
+    if (midias.length) enfileirarEnvios(c, "brutos", midias, anexar("brutos"));
+    if (docs.length) enfileirarEnvios(c, "documentos", docs, anexar("documentos"));
   };
 
   painel.querySelector("#chat-excluir").onclick = async () => {
@@ -1226,7 +1263,7 @@ async function rota() {
     } else return (location.hash = "#/clientes");
   }
   try {
-    if (partes[0] === "cliente") return await telaCliente(partes[1], partes[2] || "brutos", partes[3]);
+    if (partes[0] === "cliente") return await telaCliente(partes[1], partes[2] || "ia", partes[3]);
     if (partes[0] === "tarefas") return await telaTarefas();
     if (partes[0] === "usuarios") return await telaUsuarios();
     if (partes[0] === "conta") return telaConta();

@@ -426,6 +426,22 @@ app.get("/api/tarefas/:id", exigirLogin, (req, res) => {
   res.json(t);
 });
 
+// ---------- memória do cliente (lida e atualizada pelo agente; editável pela equipe) ----------
+app.get("/api/clientes/:id/memoria", exigirLogin, (req, res) => {
+  const c = clienteOu404(req, res);
+  if (!c) return;
+  res.json({ memoria: c.memoria || chat.MEMORIA_MODELO(c), vazia: !c.memoria });
+});
+
+app.put("/api/clientes/:id/memoria", exigirLogin, (req, res) => {
+  const c = clienteOu404(req, res);
+  if (!c) return;
+  const memoria = String(req.body.memoria ?? "");
+  if (memoria.length > 200000) return erro(res, 400, "Memória muito grande.");
+  db.prepare("UPDATE clientes SET memoria = ? WHERE id = ?").run(memoria.trim() ? memoria : null, c.id);
+  res.json({ ok: true });
+});
+
 // ---------- conversas com o Assistente IA ----------
 function conversaOu404(req, res) {
   const c = db.prepare("SELECT * FROM conversas WHERE id = ?").get(id(req.params.conversa));

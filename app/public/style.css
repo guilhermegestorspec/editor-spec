@@ -316,6 +316,8 @@ input[type="radio"] { width: 18px; height: 18px; accent-color: var(--verde); fle
 
 .chat-layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 16px; height: calc(100vh - 250px); min-height: 520px; }
 .chat-lista { display: grid; grid-template-rows: auto 1fr; gap: 10px; min-height: 0; }
+.chat-lista-topo { display: grid; gap: 8px; }
+.memoria-texto { min-height: 55vh; font: 13px/1.55 ui-monospace, Menlo, monospace; }
 .chat-itens { overflow: auto; display: grid; align-content: start; gap: 2px; }
 .chat-item { display: grid; gap: 2px; padding: 9px 10px; border-radius: var(--radius-sm); color: var(--text-2); text-decoration: none; }
 .chat-item:hover { background: var(--surface-2); text-decoration: none; color: var(--text); }

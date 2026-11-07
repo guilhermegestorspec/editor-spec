@@ -36,7 +36,11 @@ Portal da equipe em `app/` (Node 22 + Express + SQLite embutido, sem build):
 - Por cliente: Brutos, Vídeos editados, Gráficos, Referências e Tarefas. "Importar por link" em todas as pastas:
   link público do Google Drive (guardar só o link — sem baixar — ou baixar tudo; pastas listadas com `scripts/drive_listar.py`
   e baixadas arquivo a arquivo com gdown) ou vídeo de redes sociais via yt-dlp.
-- Assistente IA em formato de chat (`app/lib/chat.js`): conversas por cliente, uma pasta de trabalho por conversa em
+- Assistente IA = agente de performance do cliente (primeira aba). Memória permanente por cliente (`clientes.memoria`,
+  editável em "Memória do cliente"; o agente lê e atualiza `MEMORIA-DO-CLIENTE.md` a cada turno). Acesso à biblioteca
+  via `scripts/biblioteca.mjs` (listar/buscar/baixar, isolado por `SPEC_CLIENTE_ID`). Skills de documentos: xlsx, pdf, docx, pptx.
+- Pasta "Documentos": planilhas de resultados, relatórios, briefings, PDFs.
+- Chat (`app/lib/chat.js`): conversas por cliente, uma pasta de trabalho por conversa em
   `DATA_DIR/conversas/<id>`, sessão do Claude Agent SDK retomada a cada mensagem (sessões em `DATA_DIR/claude`).
   Anexos da biblioteca ou do computador; entregas em `saida/` vão para a biblioteca e aparecem no chat. Exige `ANTHROPIC_API_KEY`.
   Botão "Analisar com IA" nos arquivos abre uma conversa já com o arquivo anexado.

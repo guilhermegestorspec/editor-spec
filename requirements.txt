@@ -2,3 +2,14 @@ yt-dlp[default]==2026.10.26
 faster-whisper==1.2.1
 av<16
 gdown==6.5.1
+# Skills de documentos e análise de dados (xlsx, pdf, docx, pptx)
+pandas>=2.2,<3
+openpyxl>=3.1,<4
+pypdf>=5,<7
+pdfplumber>=0.11,<1
+reportlab>=4.2,<5
+python-docx>=1.1,<2
+python-pptx>=1.0,<2
+defusedxml>=0.7,<1
+lxml>=5,<7
+matplotlib>=3.9,<4

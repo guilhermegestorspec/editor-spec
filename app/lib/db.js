@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS clientes (
 CREATE TABLE IF NOT EXISTS arquivos (
   id INTEGER PRIMARY KEY,
   cliente_id INTEGER NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
-  pasta TEXT NOT NULL CHECK (pasta IN ('brutos','editados','graficos','referencias')),
+  pasta TEXT NOT NULL CHECK (pasta IN ('brutos','editados','graficos','referencias','documentos')),
   nome TEXT NOT NULL,
   caminho TEXT NOT NULL,
   tipo TEXT,
@@ -74,6 +74,27 @@ CREATE TABLE IF NOT EXISTS tarefas (
 `);
 
 // Migrações simples
+// 1) pasta "documentos" (bancos antigos têm a restrição sem ela: recria a tabela preservando os dados)
+const sqlArquivos = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='arquivos'").get()?.sql || "";
+if (!sqlArquivos.includes("'documentos'")) {
+  const cols = db.prepare("PRAGMA table_info(arquivos)").all().map((c) => c.name).join(", ");
+  db.exec("PRAGMA foreign_keys = OFF; BEGIN;");
+  try {
+    db.exec(`CREATE TABLE arquivos_nova (${sqlArquivos.slice(sqlArquivos.indexOf("(") + 1, sqlArquivos.lastIndexOf(")")).replace("'referencias')", "'referencias','documentos')")});
+             INSERT INTO arquivos_nova (${cols}) SELECT ${cols} FROM arquivos;
+             DROP TABLE arquivos;
+             ALTER TABLE arquivos_nova RENAME TO arquivos;
+             COMMIT;`);
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  } finally {
+    db.exec("PRAGMA foreign_keys = ON;");
+  }
+}
+// 2) memória do cliente (o que o agente aprendeu e a equipe registrou)
+if (!db.prepare("PRAGMA table_info(clientes)").all().some((c) => c.name === "memoria")) db.exec("ALTER TABLE clientes ADD COLUMN memoria TEXT");
+
 const colunas = db.prepare("PRAGMA table_info(arquivos)").all().map((c) => c.name);
 if (!colunas.includes("drive_id")) db.exec("ALTER TABLE arquivos ADD COLUMN drive_id TEXT");
 // status: ok | enviando (recebido pelo servidor, subindo para o Drive) | erro_envio (vai tentar de novo)
@@ -84,7 +105,7 @@ if (!colunas.includes("status")) db.exec("ALTER TABLE arquivos ADD COLUMN status
 // Tarefas que estavam rodando quando o servidor caiu não vão terminar.
 db.prepare("UPDATE tarefas SET status='erro', log=log||'\n[servidor reiniciado durante a tarefa]' WHERE status IN ('rodando')").run();
 
-export const PASTAS = ["brutos", "editados", "graficos", "referencias"];
+export const PASTAS = ["brutos", "editados", "graficos", "referencias", "documentos"];
 
 export function clienteDir(clienteId, pasta) {
   const d = path.join(DATA_DIR, "clientes", String(clienteId), pasta);

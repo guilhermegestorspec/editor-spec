@@ -9,7 +9,7 @@ import { db, DATA_DIR, clienteDir } from "./db.js";
 import * as drive from "./drive.js";
 
 export const modo = drive.driveAtivo ? "drive" : "local";
-export const NOME_PASTA = { brutos: "Brutos", editados: "Vídeos editados", graficos: "Gráficos", referencias: "Referências" };
+export const NOME_PASTA = { brutos: "Brutos", editados: "Vídeos editados", graficos: "Gráficos", referencias: "Referências", documentos: "Documentos" };
 const RAIZ_NOME = process.env.DRIVE_PASTA_RAIZ || "Spec Studio";
 
 const MIME = {

@@ -35,6 +35,32 @@ CREATE INDEX IF NOT EXISTS idx_mensagens_conversa ON mensagens(conversa_id, id);
 `);
 db.prepare("UPDATE conversas SET status = 'ociosa' WHERE status <> 'ociosa'").run(); // reinício no meio de um turno
 
+export const MEMORIA_MODELO = (cl) => `# Memória do cliente: ${cl.nome}
+
+## Negócio
+- Nicho: ${cl.nicho || "(preencher)"}
+- Produtos/serviços e ofertas principais:
+- Diferenciais:
+- Região de atuação:
+
+## Público
+- Perfil, dores e desejos:
+- Objeções comuns:
+
+## Marca e tom de voz
+- ${cl.observacoes || "(preencher)"}
+- O que evitar:
+
+## Campanhas e resultados
+(data — plataforma — objetivo — verba — resultado — aprendizado)
+
+## Aprendizados (o que funciona / o que não funciona)
+
+## Preferências da equipe e do cliente
+
+## Próximos passos
+`;
+
 const ativos = new Map(); // conversaId -> { q, parar }
 const fila = [];
 
@@ -162,45 +188,74 @@ async function executarTurno({ conversaId, texto, anexos, userId }) {
       novos.push(path.basename(destino));
     }
 
-    const contexto = `
-Você é o editor de vídeo e designer da agência Spec, conversando com a equipe pelo chat do Spec Studio.
-Responda sempre em português do Brasil, de forma direta e amigável, como numa conversa.
+    // Memória permanente do cliente: sai do banco para um arquivo que o agente lê e atualiza.
+    const arqMemoria = path.join(dir, "MEMORIA-DO-CLIENTE.md");
+    const memoriaAntes = db.prepare("SELECT memoria FROM clientes WHERE id = ?").get(c.cliente_id)?.memoria || MEMORIA_MODELO(cliente);
+    fs.writeFileSync(arqMemoria, memoriaAntes);
+    const resumoBiblioteca = db
+      .prepare("SELECT pasta, COUNT(*) n FROM arquivos WHERE cliente_id = ? GROUP BY pasta")
+      .all(c.cliente_id)
+      .map((r) => `${r.n} em ${r.pasta}`)
+      .join(", ") || "vazia";
+    const B = `node ${path.join(ROOT, "scripts/biblioteca.mjs")}`;
 
-Cliente: ${cliente.nome}
-Nicho: ${cliente.nicho || "—"}
-Cores: primária ${cliente.cor_primaria}, secundária ${cliente.cor_secundaria}, fundo ${cliente.cor_fundo}
-Fonte: ${cliente.fonte || "—"}
+    const contexto = `
+Você é o AGENTE DE PERFORMANCE da agência Spec Marketing Digital para o cliente abaixo — o parceiro de trabalho da equipe,
+no mesmo nível de um estrategista sênior de performance + editor de vídeo + designer + analista de dados.
+Você conversa com a equipe da Spec pelo chat do Spec Studio. Responda sempre em português do Brasil, direto e prático.
+
+O QUE VOCÊ FAZ (use as skills instaladas — consulte a skill antes de cada tipo de trabalho)
+- Estratégia e performance: diagnóstico de campanhas (Meta Ads, Google Ads, TikTok, YouTube), análise de métricas
+  (CPM, CTR, CPC, CPA, ROAS, frequência, hook rate, hold rate), hipóteses e testes A/B, plano de mídia, funil, ofertas.
+- Dados: lê exportações (CSV/XLSX/PDF) de gerenciadores de anúncio e CRM, calcula indicadores, encontra o que puxa
+  resultado para cima/baixo e entrega relatórios (skills xlsx, pdf, docx, pptx).
+- Criação: roteiros, ganchos, copies de anúncio, legendas de post, calendário de conteúdo, criativos estáticos,
+  carrosséis, thumbnails e vídeos editados (Remotion, HyperFrames, FFmpeg, Whisper — skills remotion-*, hyperframes, media-use).
+- Pesquisa: concorrentes, referências, tendências (pesquisa na web quando útil) e análise de vídeos de referência.
+- Organização: transforma conversas em planos, checklists e próximos passos claros.
+
+CLIENTE
+Nome: ${cliente.nome} · Nicho: ${cliente.nicho || "—"}
+Cores: primária ${cliente.cor_primaria}, secundária ${cliente.cor_secundaria}, fundo ${cliente.cor_fundo} · Fonte: ${cliente.fonte || "—"}
 Observações de marca: ${cliente.observacoes || "—"}
 
-PASTAS
-- Entrada (arquivos que a equipe anexou, somente leitura): ${entrada}
-- Entregas: ${saida} — salve aqui TODA entrega final (vídeos .mp4, imagens .png/.jpg, legendas .srt).
-  Ao fim de cada resposta, o que estiver em ${saida} vai para a biblioteca do cliente e aparece no chat.
-  Arquivos de rascunho ficam em ${dir} (fora de "saida").
-- Não altere ${ROOT} (o projeto do editor). Para Remotion crie um projeto aqui; para HyperFrames use "npx hyperframes init ... --non-interactive".
+MEMÓRIA DO CLIENTE (permanente, compartilhada entre todas as conversas): ${arqMemoria}
+- LEIA esse arquivo no início de cada conversa. Ele tem o que já sabemos: negócio, público, ofertas, tom de voz,
+  histórico de campanhas e resultados, aprendizados, preferências da equipe e do cliente.
+- ATUALIZE quando aprender algo durável (resultado de campanha, decisão, preferência, dado do negócio, o que funcionou
+  ou não). Edite de forma enxuta e organizada, mantendo as seções; registre a data (${new Date().toISOString().slice(0, 10)}) nos itens novos.
+  Não registre conversa fiada nem dados sensíveis (senhas, documentos pessoais).
 
-FERRAMENTAS: ffmpeg, yt-dlp, python3 ${path.join(ROOT, "scripts/legendar.py")} (Whisper), Remotion e HyperFrames
-(binários em ${path.join(ROOT, "node_modules/.bin")}). Leia as skills (hyperframes, media-use, remotion-*) antes de montar vídeos.
-Formatos: Meta Ads 1080x1920 / 1080x1350 / 1080x1080; YouTube 1920x1080; Shorts/TikTok 1080x1920. 30 fps, H.264, AAC, -14 LUFS.
+BIBLIOTECA DO CLIENTE (${resumoBiblioteca})
+- Listar: ${B} listar [brutos|editados|graficos|referencias|documentos]   ·   Buscar: ${B} buscar "<texto>"
+- Trazer um arquivo para trabalhar: ${B} baixar <id> ${path.join(dir, "biblioteca")}
+- Itens do tipo link do Drive: liste com python3 ${path.join(ROOT, "scripts/drive_listar.py")} "<link>" e baixe só o necessário
+  com: python3 -m gdown "<link do arquivo>" -O ${path.join(dir, "drive")}/
 
-LINKS DO GOOGLE DRIVE (brutos guardados só como link, ou colados na mensagem)
-- Primeiro liste sem baixar: python3 ${path.join(ROOT, "scripts/drive_listar.py")} "<link>"
-- Baixe SÓ o que o pedido precisa: python3 -m gdown "<link do arquivo>" -O ${path.join(dir, "drive")}/
-- Se der erro de permissão, peça à equipe para deixar o link como "Qualquer pessoa com o link".
+PASTAS DE TRABALHO
+- Anexos desta conversa (somente leitura): ${entrada}
+- ENTREGAS: ${saida} — salve aqui todo arquivo final (vídeo, imagem, planilha, PDF, apresentação, documento).
+  Ao fim de cada resposta, o que for novo em ${saida} entra na biblioteca e aparece no chat com prévia e download.
+  Rascunhos ficam em ${dir}. Não altere ${ROOT} (o sistema). Para Remotion crie um projeto aqui;
+  para HyperFrames use "npx hyperframes init ... --non-interactive".
+
+FERRAMENTAS: ffmpeg, yt-dlp, python3 ${path.join(ROOT, "scripts/legendar.py")} (Whisper), Remotion, HyperFrames
+(binários em ${path.join(ROOT, "node_modules/.bin")}), Python com pandas/openpyxl quando disponíveis.
+Formatos: Meta Ads 1080x1920 / 1080x1350 / 1080x1080; YouTube 1920x1080; Shorts/TikTok 1080x1920; 30 fps, H.264, AAC, -14 LUFS.
 
 REFERÊNCIAS DE REDES SOCIAIS (Instagram, Facebook, YouTube, TikTok…)
 - Baixe com: yt-dlp --js-runtimes node${fs.existsSync(path.join(DATA_DIR, "cookies.txt")) ? ` --cookies ${path.join(DATA_DIR, "cookies.txt")}` : ""} -o "${path.join(dir, "referencias")}/%(title).60s.%(ext)s" "<link>"
-- Para analisar: extraia quadros (ffmpeg -i ref.mp4 -vf "fps=1/2,scale=480:-1" quadros/%03d.jpg) e veja-os com a ferramenta Read;
-  transcreva a fala com o Whisper; meça duração, cortes (ffmpeg scene detection) e ritmo.
-- Entregue a análise de forma prática: gancho dos 3 primeiros segundos, estrutura, ritmo de cortes, estilo de legenda,
-  textos na tela, trilha/efeitos, CTA e o que dá para adaptar para o cliente.
-- Se a rede bloquear o download (comum em servidores), diga isso e peça para a equipe enviar o vídeo como arquivo
-  (pelo botão de anexar ou na pasta Referências).
+- Analise: quadros (ffmpeg -vf "fps=1/2,scale=480:-1") vistos com a ferramenta Read, fala transcrita com Whisper,
+  cortes por detecção de cena. Entregue: gancho dos 3 primeiros segundos, estrutura, ritmo, legendas, textos na tela,
+  trilha/efeitos, CTA e o que adaptar para o cliente.
+- Se a rede bloquear o download (comum em servidores), diga isso e peça o vídeo como arquivo.
 
-CONVERSA
-- Se o pedido estiver ambíguo em algo que muda o resultado (formato, duração, texto, público), pergunte antes de renderizar.
-- Em ajustes ("deixa maior", "troca a cor"), reaproveite o que já fez nesta conversa e gere uma nova versão (nome com v2, v3…).
-- Termine cada resposta dizendo em 1–3 frases o que entregou ou o que precisa da pessoa.
+COMO TRABALHAR
+- Seja proativo como um bom estrategista: aponte riscos, oportunidades e o próximo passo, sem enrolar.
+- Se faltar algo que muda o resultado (objetivo, verba, formato, público, prazo), pergunte antes de executar trabalho pesado.
+- Números: mostre a conta e a fonte; não invente métricas. Separe fato, hipótese e recomendação.
+- Em ajustes, reaproveite o que já fez nesta conversa e entregue nova versão (v2, v3…).
+- Termine cada resposta com o que foi entregue e/ou o que você precisa da equipe.
 `;
     let prompt = texto;
     if (novos.length) prompt += `\n\n[Arquivos anexados nesta mensagem, em ${entrada}: ${novos.join(", ")}]`;
@@ -221,7 +276,7 @@ CONVERSA
       maxTurns: Number(process.env.IA_MAX_TURNOS || 80),
       maxBudgetUsd: ORCAMENTO,
       abortController: abort,
-      env: { ...process.env, CLAUDE_CONFIG_DIR: CONFIG_CLAUDE },
+      env: { ...process.env, CLAUDE_CONFIG_DIR: CONFIG_CLAUDE, SPEC_CLIENTE_ID: String(c.cliente_id), DATA_DIR },
       ...(resume ? { resume } : {}),
     });
 
@@ -274,6 +329,12 @@ CONVERSA
       ids.push(await registrarArquivo({ clienteId: c.cliente_id, pasta, origemPath: copia, nome: f, origem: "assistente IA", userId }));
     }
     if (ids.length) addMsg(conversaId, "arquivos", "", { ids });
+    // memória atualizada pelo agente volta para o banco (e para o backup no Drive)
+    const memoriaDepois = fs.existsSync(arqMemoria) ? fs.readFileSync(arqMemoria, "utf8") : memoriaAntes;
+    if (memoriaDepois.trim() && memoriaDepois !== memoriaAntes) {
+      db.prepare("UPDATE clientes SET memoria = ? WHERE id = ?").run(memoriaDepois.slice(0, 200000), c.cliente_id);
+      addMsg(conversaId, "atividade", "Memória do cliente atualizada");
+    }
     if (cancelado) addMsg(conversaId, "erro", "Você interrompeu o assistente.");
   } catch (e) {
     console.error(`[chat ${conversaId}]`, e);

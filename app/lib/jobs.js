@@ -71,7 +71,7 @@ export function validarParams(tipo, p, clienteId) {
     if (tipo === "baixar") {
       const u = new URL(p.url);
       if (!["http:", "https:"].includes(u.protocol)) return "URL inválida.";
-      if (p.pasta && !["brutos", "editados", "graficos", "referencias"].includes(p.pasta)) return "Pasta inválida.";
+      if (p.pasta && !["brutos", "editados", "graficos", "referencias", "documentos"].includes(p.pasta)) return "Pasta inválida.";
     }
     if (tipo === "grafico") {
       if (!FORMATOS_GRAFICO[p.formato]) return "Formato inválido.";
