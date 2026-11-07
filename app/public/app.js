@@ -47,7 +47,7 @@ function quando(iso) {
 }
 
 function limparTimers() {
-  estado.timers.forEach(clearInterval);
+  estado.timers.forEach((t) => (t && t.clear ? t.clear() : clearInterval(t)));
   estado.timers = [];
 }
 
@@ -272,7 +272,7 @@ function formCliente(c = null) {
 }
 
 // ---------- cliente ----------
-async function telaCliente(id, aba) {
+async function telaCliente(id, aba, sub) {
   const el = casca("clientes", `<p class="muted">Carregando…</p>`);
   const clientes = await api("/clientes");
   const c = clientes.find((x) => x.id === Number(id));
@@ -284,7 +284,6 @@ async function telaCliente(id, aba) {
   const conta = (p) => arquivos.filter((a) => a.pasta === p).length;
   const abas = [
     ...PASTAS.map((p) => [p.id, p.nome.replace("Materiais ", "").replace(/^\w/, (x) => x.toUpperCase()), conta(p.id)]),
-    ["criar", "Criar peça", null],
     ["ia", "Assistente IA", null],
     ["tarefas", "Tarefas", null],
   ];
@@ -314,8 +313,7 @@ async function telaCliente(id, aba) {
     };
   const alvo = document.getElementById("aba");
   if (PASTAS.some((p) => p.id === aba)) return abaPasta(alvo, c, aba, arquivos.filter((a) => a.pasta === aba));
-  if (aba === "criar") return abaCriar(alvo, c, arquivos);
-  if (aba === "ia") return abaIA(alvo, c, arquivos);
+  if (aba === "ia") return abaIA(alvo, c, arquivos, sub);
   if (aba === "tarefas") return listaTarefas(alvo, c.id);
   location.hash = `#/cliente/${c.id}/brutos`;
 }
@@ -323,6 +321,7 @@ async function telaCliente(id, aba) {
 const urlArquivo = (a, baixar) => `/api/arquivos/${a.id}/conteudo${baixar ? "?baixar=1" : ""}`;
 
 function midia(a) {
+  if (a.tipo === "link") return `<span class="tipo link-drive">${ic.link}<span>${/pasta/i.test(a.origem || "") ? "Pasta do Drive" : "Link do Drive"}</span></span>`;
   if (a.tipo === "imagem") return `<img src="${urlArquivo(a)}" alt="" loading="lazy">`;
   if (a.tipo === "video") return `<video src="${urlArquivo(a)}#t=0.5" preload="metadata" muted playsinline></video><span class="play"></span>`;
   const ext = a.nome.split(".").pop();
@@ -363,7 +362,11 @@ function abaPasta(alvo, c, pasta, arquivos) {
       const d = modal(
         `Importar para ${info.nome}`,
         `<form class="grid-form" id="f"><label class="cheia">Link
-          <input name="url" type="url" required placeholder="https://drive.google.com/…"></label>
+          <input name="url" type="url" required placeholder="https://drive.google.com/… ou https://instagram.com/…"></label>
+          <fieldset class="cheia escolha" id="modo-drive" hidden>
+            <label class="check"><input type="radio" name="modo" value="link" checked> <span><b>Só guardar o link</b> — não baixa nada agora; o Assistente IA consulta e baixa só o que precisar</span></label>
+            <label class="check"><input type="radio" name="modo" value="baixar"> <span><b>Baixar tudo agora</b> para esta pasta</span></label>
+          </fieldset>
           <div class="cheia small muted" style="display:grid;gap:6px">
             <p><b style="color:var(--text)">Google Drive:</b> link de um arquivo ou de uma pasta inteira (subpastas incluídas).
               No Drive, o compartilhamento precisa estar em <b>“Qualquer pessoa com o link”</b>.</p>
@@ -372,15 +375,30 @@ function abaPasta(alvo, c, pasta, arquivos) {
           </div>
           <div class="acoes cheia"><button class="btn primario">Importar</button></div></form>`
       );
-      d.querySelector("form").onsubmit = async (e) => {
+      const f = d.querySelector("form");
+      const ehDrive = (u) => /^https:\/\/(drive|docs)\.google\.com\//i.test(u.trim());
+      f.url.oninput = () => (d.querySelector("#modo-drive").hidden = !ehDrive(f.url.value));
+      f.onsubmit = async (e) => {
         e.preventDefault();
-        await criarTarefa(c.id, "baixar", { url: new FormData(e.target).get("url"), pasta }, d);
+        const url = f.url.value.trim();
+        if (ehDrive(url) && f.modo.value === "link") {
+          try {
+            await api(`/clientes/${c.id}/links`, { method: "POST", body: { url, pasta } });
+            d.close();
+            toast("Link guardado.");
+            rota();
+          } catch (err) {
+            toast(err.message, true);
+          }
+          return;
+        }
+        await criarTarefa(c.id, "baixar", { url, pasta }, d);
       };
     };
   if (arquivos.some((a) => a.status && a.status !== "ok")) estado.timers.push(setInterval(() => atualizarSeVisivel(c.id, pasta), 5000));
   alvo.querySelectorAll("[data-arquivo]").forEach((card) => {
     const a = arquivos.find((x) => x.id === Number(card.dataset.arquivo));
-    card.querySelector(".midia").onclick = () => verArquivo(a);
+    card.querySelector(".midia").onclick = () => (a.tipo === "link" ? window.open(a.url, "_blank", "noopener") : verArquivo(a));
     card.querySelectorAll("[data-acao]").forEach((b) => (b.onclick = () => acaoArquivo(b.dataset.acao, a, c)));
   });
 }
@@ -393,12 +411,15 @@ function cartaoArquivo(a) {
       <div class="nome">${esc(a.nome)}</div>
       ${a.status === "enviando" ? `<span class="badge rodando">Subindo para o Google Drive…</span>` : ""}
       ${a.status === "erro_envio" ? `<span class="badge na_fila">Reenviando ao Google Drive…</span>` : ""}
-      <div class="meta">${tamanho(a.tamanho)} · ${quando(a.criado_em)}${a.autor ? " · " + esc(a.autor) : ""}${a.origem && a.origem !== "upload" ? `<br>${esc(a.origem)}` : ""}</div>
+      <div class="meta">${a.tipo === "link" ? "" : tamanho(a.tamanho) + " · "}${quando(a.criado_em)}${a.autor ? " · " + esc(a.autor) : ""}${a.origem && a.origem !== "upload" ? `<br>${esc(a.origem)}` : ""}</div>
       <div class="acoes">
+        ${a.tipo === "link" ? `<a class="btn pequeno" href="${esc(a.url)}" target="_blank" rel="noopener" title="Abrir no Google Drive">Abrir</a>
+        <button class="btn pequeno" data-acao="baixar_link" title="Trazer os arquivos para o sistema">${ic.baixar} Baixar agora</button>` : ""}
+        ${a.status === "ok" || !a.status ? `<button class="btn pequeno" data-acao="analisar" title="Conversar com o Assistente IA sobre este arquivo">${ic.ia}</button>` : ""}
         ${video ? `<button class="btn pequeno" data-acao="cortar" title="Cortar">${ic.tesoura}</button>
         <button class="btn pequeno" data-acao="exportar" title="Exportar formato">${ic.formato}</button>` : ""}
         ${video || a.tipo === "audio" ? `<button class="btn pequeno" data-acao="legendar" title="Legendas automáticas">${ic.legenda}</button>` : ""}
-        <a class="btn pequeno" href="${urlArquivo(a, true)}" title="Baixar">${ic.baixar}</a>
+        ${a.tipo === "link" ? "" : `<a class="btn pequeno" href="${urlArquivo(a, true)}" title="Baixar">${ic.baixar}</a>`}
         <button class="btn pequeno" data-acao="mover" title="Mover de pasta">${ic.mover}</button>
         <button class="btn pequeno perigo" data-acao="excluir" title="Excluir">${ic.lixo}</button>
       </div>
@@ -428,6 +449,11 @@ async function criarTarefa(clienteId, tipo, params, dialogo) {
 
 function acaoArquivo(acao, a, c) {
   const cfg = estado.config;
+  if (acao === "analisar") return abrirChatCom(c, a);
+  if (acao === "baixar_link") {
+    if (!confirm(`Baixar o conteúdo de "${a.nome}" para ${PASTAS.find((p) => p.id === a.pasta).nome}? O cartão de link será substituído pelos arquivos.`)) return;
+    return criarTarefa(c.id, "baixar", { url: a.url, pasta: a.pasta, link_id: a.id });
+  }
   if (acao === "excluir") {
     if (!confirm(`Excluir "${a.nome}"?`)) return;
     return api(`/arquivos/${a.id}`, { method: "DELETE" }).then(rota).catch((e) => toast(e.message, true));
@@ -524,10 +550,10 @@ function acaoArquivo(acao, a, c) {
 const envios = { itens: [], ativos: 0, max: 3, minimizado: false, timerDesenho: null, timerLista: null };
 const pendentesEnvio = () => envios.itens.filter((i) => i.status === "fila" || i.status === "enviando");
 
-function enfileirarEnvios(cliente, pasta, files) {
+function enfileirarEnvios(cliente, pasta, files, aoConcluir) {
   if (!files || !files.length) return;
   for (const file of files)
-    envios.itens.push({ id: Math.random().toString(36).slice(2), clienteId: cliente.id, cliente: cliente.nome, pasta, file, nome: file.name, total: file.size, enviado: 0, status: "fila" });
+    envios.itens.push({ id: Math.random().toString(36).slice(2), clienteId: cliente.id, cliente: cliente.nome, pasta, file, nome: file.name, total: file.size, enviado: 0, status: "fila", aoConcluir });
   envios.minimizado = false;
   processarEnvios();
 }
@@ -601,7 +627,8 @@ async function enviarItem(it) {
       }
       agendarDesenho();
     }
-    await api(`/envios/${inicio.id}/concluir`, { method: "POST", body: {} });
+    const concluido = await api(`/envios/${inicio.id}/concluir`, { method: "POST", body: {} });
+    try { it.aoConcluir?.(concluido.id, it.nome); } catch {}
   } catch (e) {
     erro = e.message || "Falha no envio";
   }
@@ -615,6 +642,13 @@ async function enviarItem(it) {
     atualizarSeVisivel(it.clienteId, it.pasta);
   }
   if (!pendentesEnvio().length) {
+    // some sozinho alguns segundos depois de tudo enviado (falhas continuam visíveis)
+    clearTimeout(envios.timerSumir);
+    envios.timerSumir = setTimeout(() => {
+      if (pendentesEnvio().length) return;
+      envios.itens = envios.itens.filter((i) => i.status === "erro");
+      desenharEnvios();
+    }, 6000);
     const ok = envios.itens.filter((i) => i.status === "ok").length;
     const falhas = envios.itens.filter((i) => i.status === "erro").length;
     toast(falhas ? `${ok} enviado(s), ${falhas} com erro.` : `${ok} arquivo(s) enviado(s).`, falhas > 0);
@@ -704,100 +738,306 @@ window.addEventListener("beforeunload", (e) => {
   }
 });
 
-// ---------- criar peça ----------
-function abaCriar(alvo, c, arquivos) {
-  const cfg = estado.config;
-  const imagens = arquivos.filter((a) => a.tipo === "imagem");
-  alvo.innerHTML = `
-  <div class="dupla">
-    <form class="card grid-form" id="f-peca">
-      <span class="rotulo cheia">Peça com a marca do cliente</span>
-      <label class="cheia">Formato <select name="formato">${Object.entries(cfg.formatosGrafico)
-        .map(([k, f]) => `<option value="${k}">${esc(f.nome)}</option>`)
-        .join("")}</select></label>
-      <label class="cheia">Título <input name="titulo" required maxlength="200" value="Sua chamada principal aqui"></label>
-      <label class="cheia">Subtítulo <input name="subtitulo" maxlength="300" value="Uma frase de apoio curta e direta."></label>
-      <label>Botão / CTA <input name="cta" maxlength="60" value="Saiba mais"></label>
-      <label>Layout <select name="layout"><option value="centro">Centralizado</option><option value="esquerda">Alinhado à esquerda</option><option value="base">Texto na base</option></select></label>
-      <label class="cheia">Imagem de fundo (da biblioteca) <select name="imagem_id"><option value="">Sem imagem — usar cores da marca</option>${imagens
-        .map((a) => `<option value="${a.id}">${esc(a.nome)}</option>`)
-        .join("")}</select></label>
-      <label class="check cheia"><input type="checkbox" name="animado"> Versão animada em vídeo (anúncio de 3s em MP4)</label>
-      <div class="acoes cheia"><button class="btn primario">${ic.mais} Gerar peça</button>
-        <span class="muted small">PNG vai para Gráficos; animado vai para Editados.</span></div>
-    </form>
-    <div class="card" style="display:grid;gap:12px">
-      <span class="rotulo">Pré-visualização aproximada</span>
-      <div class="previa" id="previa"></div>
-      <p class="muted small">A arte final é renderizada pelo Remotion com as cores de ${esc(c.nome)}. Para peças mais elaboradas, use o Assistente IA.</p>
-    </div>
-  </div>`;
-  const f = document.getElementById("f-peca");
-  const atualizar = () => {
-    const v = Object.fromEntries(new FormData(f));
-    const { w, h } = cfg.formatosGrafico[v.formato];
-    const p = document.getElementById("previa");
-    p.style.aspectRatio = `${w}/${h}`;
-    p.style.maxWidth = `${Math.min(520 * (w / h), 640)}px`;
-    p.style.background = c.cor_fundo;
-    p.style.color = c.cor_secundaria;
-    p.style.backgroundImage = v.imagem_id ? `linear-gradient(rgba(0,0,0,.25), rgba(0,0,0,.65)), url(/api/arquivos/${v.imagem_id}/conteudo)` : "";
-    p.style.textAlign = v.layout === "centro" ? "center" : "left";
-    p.style.alignContent = v.layout === "base" ? "end" : "center";
-    p.innerHTML = `<span class="p-marca" style="color:${esc(c.cor_primaria)}">${esc(c.nome)}</span>
-      <div class="p-titulo">${esc(v.titulo)}</div>${v.subtitulo ? `<div class="p-sub">${esc(v.subtitulo)}</div>` : ""}
-      ${v.cta ? `<div class="p-cta" style="background:${esc(c.cor_primaria)};color:${esc(c.cor_fundo)};${v.layout === "centro" ? "justify-self:center" : ""}">${esc(v.cta)}</div>` : ""}`;
-  };
-  f.oninput = atualizar;
-  atualizar();
-  f.onsubmit = (e) => {
-    e.preventDefault();
-    const v = Object.fromEntries(new FormData(f));
-    criarTarefa(c.id, "grafico", { ...v, imagem_id: v.imagem_id ? Number(v.imagem_id) : null, animado: v.animado === "on" });
-  };
+// ---------- assistente IA (chat) ----------
+// Texto simples com um pouco de markdown (negrito, listas, código, links), sempre escapado.
+function markdownLeve(t) {
+  const blocos = [];
+  let x = esc(t).replace(/```(?:\w+)?\n?([\s\S]*?)```/g, (_, c) => `\u0000${blocos.push(`<pre class="cod">${c}</pre>`) - 1}\u0000`);
+  x = x
+    .replace(/`([^`\n]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>")
+    .replace(/\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+  const html = x
+    .split(/\n{2,}/)
+    .map((par) => {
+      // agrupa linhas seguidas do mesmo tipo: texto, lista com marcador, lista numerada
+      const tipo = (l) => (/^\s*[-*•]\s+/.test(l) ? "ul" : /^\s*\d+[.)]\s+/.test(l) ? "ol" : /^#{1,4}\s/.test(l) ? "h" : "p");
+      const grupos = [];
+      for (const l of par.split("\n")) {
+        const t = tipo(l);
+        if (grupos.length && grupos.at(-1).t === t && t !== "h") grupos.at(-1).l.push(l);
+        else grupos.push({ t, l: [l] });
+      }
+      return grupos
+        .map((g) =>
+          g.t === "ul" ? `<ul>${g.l.map((l) => `<li>${l.replace(/^\s*[-*•]\s+/, "")}</li>`).join("")}</ul>`
+          : g.t === "ol" ? `<ol>${g.l.map((l) => `<li>${l.replace(/^\s*\d+[.)]\s+/, "")}</li>`).join("")}</ol>`
+          : g.t === "h" ? `<p><b>${g.l[0].replace(/^#{1,4}\s+/, "")}</b></p>`
+          : `<p>${g.l.join("<br>")}</p>`
+        )
+        .join("");
+    })
+    .join("");
+  return html.replace(/\u0000(\d+)\u0000/g, (_, i) => blocos[i]);
 }
 
-// ---------- assistente IA ----------
-function abaIA(alvo, c, arquivos) {
-  const ativa = estado.config.iaAtiva;
-  const sugestoes = [
-    "Edite um anúncio de 30s para Meta Ads (Reels 9:16) a partir do bruto selecionado, com cortes dinâmicos, legendas animadas e CTA no final.",
-    "Crie um vídeo para YouTube 16:9 com abertura com a marca do cliente, legendas e trilha de fundo.",
-    "Corte os 3 melhores momentos do bruto em Shorts de até 45s com legendas.",
-    "Crie um carrossel de 5 lâminas 4:5 para Instagram sobre o tema do vídeo selecionado.",
-    "Crie 3 variações de criativo estático para Meta Ads (1:1, 4:5 e 9:16) com a identidade do cliente.",
-    "Analise a referência selecionada e reproduza o estilo de edição no nosso bruto.",
-  ];
+const SUGESTOES_CHAT = [
+  "Edite um anúncio de 30s para Reels (9:16) com o bruto anexado: cortes dinâmicos, legendas animadas e CTA no final.",
+  "Corte os 3 melhores momentos do vídeo em Shorts de até 45s com legendas.",
+  "Crie 3 criativos estáticos para Meta Ads (1:1, 4:5 e 9:16) com a identidade do cliente.",
+  "Analise esta referência e me diga o que dá para adaptar para o cliente.",
+  "Veja o que tem na pasta do Drive e separe os melhores takes.",
+  "Monte um vídeo para YouTube (16:9) com abertura com a marca, legendas e trilha.",
+];
+
+async function abrirChatCom(c, a) {
+  if (!estado.config.iaAtiva) return toast("Assistente IA desativado: falta configurar ANTHROPIC_API_KEY.", true);
+  const r = await api(`/clientes/${c.id}/conversas`, { method: "POST", body: {} });
+  const texto =
+    a.tipo === "link" ? "Veja o que tem neste link do Drive e me diga o que dá para fazer com ele."
+    : a.pasta === "referencias" ? "Analise esta referência (gancho, ritmo, cortes, legendas, textos, CTA) e me diga o que dá para adaptar para o cliente."
+    : a.tipo === "video" ? "O que você sugere fazer com este vídeo? Me dê opções de peças antes de editar."
+    : "Dê uma olhada neste arquivo e me diga como podemos usá-lo.";
+  estado.rascunho = { conversa: r.id, texto, anexos: [{ id: a.id, nome: a.nome, pasta: a.pasta, tipo: a.tipo }] };
+  location.hash = `#/cliente/${c.id}/ia/${r.id}`;
+}
+
+async function abaIA(alvo, c, arquivos, conversaId) {
+  if (!estado.config.iaAtiva) {
+    alvo.innerHTML = `<div class="vazio"><img src="marca/icone-verde.svg" alt=""><h3>Assistente IA desativado</h3><p>O administrador precisa configurar <code>ANTHROPIC_API_KEY</code> no servidor.</p></div>`;
+    return;
+  }
+  const conversas = await api(`/clientes/${c.id}/conversas`);
+  const atual = Number(conversaId) || null;
   alvo.innerHTML = `
-  <div class="dupla">
-    <form class="card grid-form" id="f-ia">
-      <span class="rotulo cheia">Pedido ao editor IA</span>
-      ${ativa ? "" : `<p class="erro-msg cheia">O assistente está desativado: o administrador precisa configurar ANTHROPIC_API_KEY no servidor.</p>`}
-      <label class="cheia">O que você quer produzir?
-        <textarea name="pedido" required minlength="5" placeholder="Descreva a peça: formato, duração, objetivo, estilo, texto, CTA…"></textarea></label>
-      <div class="sugestoes cheia">${sugestoes.map((s) => `<button type="button">${esc(s)}</button>`).join("")}</div>
-      <div class="acoes cheia"><button class="btn primario" ${ativa ? "" : "disabled"}>${ic.ia} Enviar para o assistente</button></div>
-      <p class="muted small cheia">O assistente usa as skills instaladas (Remotion, HyperFrames, FFmpeg, Whisper, yt-dlp) e a marca do cliente. As entregas voltam para Editados ou Gráficos.</p>
-    </form>
-    <div class="card" style="display:grid;gap:10px">
-      <span class="rotulo">Arquivos de entrada</span>
-      ${
-        arquivos.length
-          ? `<div class="lista-escolha">${arquivos
-              .map((a) => `<label><input type="checkbox" value="${a.id}"> <span>${esc(a.nome)} <span class="muted small">· ${PASTAS.find((p) => p.id === a.pasta).nome}</span></span></label>`)
-              .join("")}</div>`
-          : `<p class="muted">Envie brutos ou referências primeiro.</p>`
-      }
-    </div>
+  <div class="chat-layout">
+    <aside class="chat-lista">
+      <button class="btn primario" id="nova-conversa">${ic.mais} Nova conversa</button>
+      <div class="chat-itens">${
+        conversas.length
+          ? conversas
+              .map(
+                (v) => `<a href="#/cliente/${c.id}/ia/${v.id}" class="chat-item ${v.id === atual ? "ativo" : ""}">
+                  <span>${esc(v.titulo)}</span>
+                  <small>${v.status !== "ociosa" ? '<span class="ponto"></span> trabalhando · ' : ""}${quando(v.atualizado_em)}${v.autor ? " · " + esc(v.autor) : ""}</small></a>`
+              )
+              .join("")
+          : `<p class="muted small" style="padding:8px">Nenhuma conversa ainda.</p>`
+      }</div>
+    </aside>
+    <section class="chat" id="chat"></section>
   </div>`;
-  const f = document.getElementById("f-ia");
-  f.querySelectorAll(".sugestoes button").forEach((b) => (b.onclick = () => (f.pedido.value = b.textContent)));
-  f.onsubmit = async (e) => {
-    e.preventDefault();
-    const ids = [...alvo.querySelectorAll(".lista-escolha input:checked")].map((i) => Number(i.value));
-    const r = await criarTarefa(c.id, "ia", { pedido: f.pedido.value, arquivo_ids: ids });
-    if (r) location.hash = `#/cliente/${c.id}/tarefas`;
+  alvo.querySelector("#nova-conversa").onclick = async () => {
+    try {
+      const r = await api(`/clientes/${c.id}/conversas`, { method: "POST", body: {} });
+      location.hash = `#/cliente/${c.id}/ia/${r.id}`;
+    } catch (e) {
+      toast(e.message, true);
+    }
   };
+  const painel = alvo.querySelector("#chat");
+  if (!atual) {
+    painel.innerHTML = `<div class="chat-boasvindas"><img src="marca/icone-verde.svg" alt="">
+      <h2>Assistente de ${esc(c.nome)}</h2>
+      <p class="muted">Peça vídeos, cortes, legendas, criativos para Meta Ads, YouTube e outros formatos, ou mande referências para análise.
+      Ele conhece a marca do cliente e usa todas as ferramentas do Spec Studio.</p>
+      <button class="btn primario" id="comecar">${ic.mais} Começar uma conversa</button></div>`;
+    painel.querySelector("#comecar").onclick = () => alvo.querySelector("#nova-conversa").click();
+    return;
+  }
+  return chatConversa(painel, c, arquivos, atual);
+}
+
+async function chatConversa(painel, c, arquivos, conversaId) {
+  document.body.classList.add("tem-chat");
+  estado.timers.push({ clear: () => document.body.classList.remove("tem-chat") });
+  const st = { ultimo: 0, status: "ociosa", anexos: [], arquivosCache: new Map(), timer: null };
+  const rascunho = estado.rascunho && estado.rascunho.conversa === conversaId ? estado.rascunho : null;
+  estado.rascunho = null;
+  if (rascunho) st.anexos = rascunho.anexos;
+
+  painel.innerHTML = `
+    <header class="chat-cab">
+      <div><b id="chat-titulo"></b><small class="muted" id="chat-info"></small></div>
+      <div class="acoes"><button class="btn pequeno fantasma perigo" id="chat-excluir" title="Excluir conversa">${ic.lixo}</button></div>
+    </header>
+    <div class="chat-msgs" id="msgs"></div>
+    <div class="chat-trabalhando" id="trabalhando" hidden><span class="pontinhos"><i></i><i></i><i></i></span>
+      <span id="trab-texto">O assistente está trabalhando…</span><button class="btn pequeno" id="parar">Parar</button></div>
+    <form class="chat-compor" id="compor">
+      <div class="chips" id="chips"></div>
+      <textarea name="texto" rows="1" placeholder="Escreva o que você precisa… (Enter envia, Shift+Enter quebra linha)"></textarea>
+      <div class="chat-compor-acoes">
+        <button type="button" class="btn pequeno fantasma" id="anexar">${ic.mover} Anexar da biblioteca</button>
+        <label class="btn pequeno fantasma">${ic.upload} Enviar do computador<input type="file" multiple hidden id="up-chat"></label>
+        <button class="btn primario" id="enviar">Enviar</button>
+      </div>
+    </form>`;
+  const msgs = painel.querySelector("#msgs");
+  const form = painel.querySelector("#compor");
+  const ta = form.texto;
+  if (rascunho) ta.value = rascunho.texto;
+
+  const autoAltura = () => {
+    ta.style.height = "auto";
+    ta.style.height = Math.min(ta.scrollHeight, 220) + "px";
+  };
+  ta.oninput = autoAltura;
+  ta.onkeydown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+      e.preventDefault();
+      form.requestSubmit();
+    }
+  };
+
+  const desenharChips = () => {
+    painel.querySelector("#chips").innerHTML = st.anexos
+      .map((a, i) => `<span class="chip">${a.tipo === "link" ? ic.link : ""}${esc(a.nome)}<button type="button" data-tirar="${i}" aria-label="Remover">${ic.x}</button></span>`)
+      .join("");
+    painel.querySelectorAll("[data-tirar]").forEach((b) => (b.onclick = () => (st.anexos.splice(Number(b.dataset.tirar), 1), desenharChips())));
+  };
+  desenharChips();
+
+  painel.querySelector("#anexar").onclick = () => {
+    const d = modal(
+      "Anexar arquivos da biblioteca",
+      `<input type="search" placeholder="Procurar…" id="busca">
+       <div class="lista-escolha" id="lista" style="max-height:50vh">${
+         arquivos.length
+           ? arquivos
+               .map(
+                 (a) => `<label data-nome="${esc(a.nome.toLowerCase())}"><input type="checkbox" value="${a.id}" ${st.anexos.some((x) => x.id === a.id) ? "checked" : ""}>
+                   <span>${esc(a.nome)} <span class="muted small">· ${PASTAS.find((p) => p.id === a.pasta).nome}${a.tipo === "link" ? " · link" : ""}</span></span></label>`
+               )
+               .join("")
+           : `<p class="muted">Nenhum arquivo neste cliente ainda.</p>`
+       }</div>
+       <div class="acoes"><button class="btn primario" id="ok">Anexar selecionados</button></div>`
+    );
+    d.querySelector("#busca").oninput = (e) =>
+      d.querySelectorAll("#lista label").forEach((l) => (l.hidden = !l.dataset.nome.includes(e.target.value.toLowerCase())));
+    d.querySelector("#ok").onclick = () => {
+      const ids = [...d.querySelectorAll("#lista input:checked")].map((i) => Number(i.value));
+      st.anexos = arquivos.filter((a) => ids.includes(a.id)).map((a) => ({ id: a.id, nome: a.nome, pasta: a.pasta, tipo: a.tipo }));
+      desenharChips();
+      d.close();
+    };
+  };
+  painel.querySelector("#up-chat").onchange = (e) => {
+    const files = [...e.target.files];
+    e.target.value = "";
+    toast(`Enviando ${files.length} arquivo(s) para Brutos; eles entram como anexo quando terminarem.`);
+    enfileirarEnvios(c, "brutos", files, (id, nome) => {
+      if (!document.body.contains(painel)) return;
+      st.anexos.push({ id, nome, pasta: "brutos", tipo: "" });
+      desenharChips();
+    });
+  };
+
+  painel.querySelector("#chat-excluir").onclick = async () => {
+    if (!confirm("Excluir esta conversa? Os arquivos que ela gerou continuam na biblioteca.")) return;
+    await api(`/conversas/${conversaId}`, { method: "DELETE" });
+    location.hash = `#/cliente/${c.id}/ia`;
+  };
+  painel.querySelector("#parar").onclick = async (e) => {
+    e.target.disabled = true;
+    await api(`/conversas/${conversaId}/parar`, { method: "POST" }).catch(() => {});
+  };
+
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const texto = ta.value.trim();
+    if (!texto || st.status !== "ociosa") return;
+    const btn = form.querySelector("#enviar");
+    btn.disabled = true;
+    try {
+      await api(`/conversas/${conversaId}/mensagens`, { method: "POST", body: { texto, arquivo_ids: st.anexos.map((a) => a.id) } });
+      ta.value = "";
+      st.anexos = [];
+      desenharChips();
+      autoAltura();
+      await atualizar();
+    } catch (err) {
+      toast(err.message, true);
+    } finally {
+      btn.disabled = false;
+    }
+  };
+
+  // ----- desenho das mensagens -----
+  let grupoAtividade = null;
+  const noFim = () => msgs.scrollTop + msgs.clientHeight >= msgs.scrollHeight - 80;
+
+  async function cartoesArquivos(ids) {
+    const faltam = ids.filter((i) => !st.arquivosCache.has(i));
+    if (faltam.length) for (const a of await api(`/arquivos?ids=${faltam.join(",")}`)) st.arquivosCache.set(a.id, a);
+    return ids
+      .map((i) => st.arquivosCache.get(i))
+      .filter(Boolean)
+      .map(
+        (a) => `<div class="chat-arquivo" data-ver="${a.id}">
+          <div class="midia">${midia(a)}</div>
+          <div class="info"><span class="nome">${esc(a.nome)}</span>
+            <span class="meta">${PASTAS.find((p) => p.id === a.pasta)?.nome || ""} · ${tamanho(a.tamanho)}</span>
+            <a class="btn pequeno" href="${urlArquivo(a, true)}">${ic.baixar} Baixar</a></div></div>`
+      )
+      .join("");
+  }
+
+  async function adicionar(m) {
+    if (m.papel !== "atividade") grupoAtividade = null;
+    if (m.papel === "usuario") {
+      const anexos = m.dados?.anexos || [];
+      msgs.insertAdjacentHTML(
+        "beforeend",
+        `<div class="msg eu"><div class="balao">${markdownLeve(m.texto)}${
+          anexos.length ? `<div class="chips">${anexos.map((a) => `<span class="chip">${esc(a.nome)}</span>`).join("")}</div>` : ""
+        }</div><small>${esc(m.dados?.autor || "")} · ${quando(m.criado_em)}</small></div>`
+      );
+    } else if (m.papel === "assistente") {
+      msgs.insertAdjacentHTML("beforeend", `<div class="msg ia"><img class="ia-avatar" src="marca/favicon.svg" alt=""><div class="balao">${markdownLeve(m.texto)}</div></div>`);
+    } else if (m.papel === "atividade") {
+      if (!grupoAtividade) {
+        msgs.insertAdjacentHTML("beforeend", `<details class="atividades"><summary><span class="qtd">1 etapa</span> · <span class="ultima"></span></summary><ul></ul></details>`);
+        grupoAtividade = msgs.lastElementChild;
+        grupoAtividade.n = 0;
+      }
+      grupoAtividade.n++;
+      grupoAtividade.querySelector(".qtd").textContent = `${grupoAtividade.n} etapa${grupoAtividade.n > 1 ? "s" : ""}`;
+      grupoAtividade.querySelector(".ultima").textContent = m.texto;
+      grupoAtividade.querySelector("ul").insertAdjacentHTML("beforeend", `<li>${esc(m.texto)}</li>`);
+    } else if (m.papel === "arquivos") {
+      msgs.insertAdjacentHTML("beforeend", `<div class="msg ia arquivos"><div class="chat-arquivos">${await cartoesArquivos(m.dados?.ids || [])}</div></div>`);
+      msgs.lastElementChild.querySelectorAll("[data-ver]").forEach((el) => {
+        const a = st.arquivosCache.get(Number(el.dataset.ver));
+        el.querySelector(".midia").onclick = () => verArquivo(a);
+      });
+    } else if (m.papel === "erro") {
+      msgs.insertAdjacentHTML("beforeend", `<div class="msg aviso">${esc(m.texto)}</div>`);
+    }
+  }
+
+  async function atualizar() {
+    const r = await api(`/conversas/${conversaId}?desde=${st.ultimo}`);
+    const rolar = noFim() || st.ultimo === 0;
+    painel.querySelector("#chat-titulo").textContent = r.conversa.titulo;
+    const itemLista = document.querySelector(`.chat-item.ativo span`);
+    if (itemLista) itemLista.textContent = r.conversa.titulo;
+    painel.querySelector("#chat-info").textContent = r.conversa.custo ? ` · custo até agora US$ ${r.conversa.custo.toFixed(2)}` : "";
+    for (const m of r.mensagens) {
+      await adicionar(m);
+      st.ultimo = m.id;
+    }
+    if (st.ultimo === 0 && !msgs.children.length) {
+      msgs.innerHTML = `<div class="chat-vazio"><p class="muted">Sugestões para começar:</p><div class="sugestoes">${SUGESTOES_CHAT.map((x) => `<button type="button">${esc(x)}</button>`).join("")}</div></div>`;
+      msgs.querySelectorAll(".sugestoes button").forEach((b) => (b.onclick = () => ((ta.value = b.textContent), autoAltura(), ta.focus())));
+    } else msgs.querySelector(".chat-vazio")?.remove();
+    st.status = r.conversa.status;
+    const trabalhando = st.status !== "ociosa";
+    painel.querySelector("#trabalhando").hidden = !trabalhando;
+    painel.querySelector("#trab-texto").textContent = st.status === "na_fila" ? "Na fila: outra conversa está sendo atendida…" : "O assistente está trabalhando…";
+    painel.querySelector("#parar").disabled = false;
+    form.querySelector("#enviar").disabled = trabalhando;
+    ta.placeholder = trabalhando ? "Aguarde o assistente terminar para mandar a próxima mensagem…" : "Escreva o que você precisa… (Enter envia, Shift+Enter quebra linha)";
+    if (rolar) msgs.scrollTop = msgs.scrollHeight;
+    clearTimeout(st.timer);
+    if (document.body.contains(painel)) st.timer = setTimeout(() => atualizar().catch(() => {}), trabalhando ? 1500 : 6000);
+  }
+  estado.timers.push({ clear: () => clearTimeout(st.timer) });
+  await atualizar();
+  autoAltura();
+  ta.focus();
 }
 
 // ---------- tarefas ----------
@@ -986,7 +1226,7 @@ async function rota() {
     } else return (location.hash = "#/clientes");
   }
   try {
-    if (partes[0] === "cliente") return await telaCliente(partes[1], partes[2] || "brutos");
+    if (partes[0] === "cliente") return await telaCliente(partes[1], partes[2] || "brutos", partes[3]);
     if (partes[0] === "tarefas") return await telaTarefas();
     if (partes[0] === "usuarios") return await telaUsuarios();
     if (partes[0] === "conta") return telaConta();

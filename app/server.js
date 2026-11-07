@@ -12,6 +12,7 @@ import {
 import { enfileirar, validarParams, registrarArquivo, nomeSeguro, retomarFila } from "./lib/jobs.js";
 import * as storage from "./lib/storage.js";
 import { agendarBackups } from "./lib/backup.js";
+import * as chat from "./lib/chat.js";
 import { FORMATOS_VIDEO, FORMATOS_GRAFICO, MODELOS_WHISPER } from "./lib/presets.js";
 
 const app = express();
@@ -209,7 +210,7 @@ app.get("/api/clientes/:id/arquivos", exigirLogin, (req, res) => {
   const c = clienteOu404(req, res);
   if (!c) return;
   const pasta = PASTAS.includes(req.query.pasta) ? req.query.pasta : null;
-  const sql = `SELECT a.id, a.pasta, a.nome, a.tipo, a.tamanho, a.origem, a.criado_em, a.status, u.nome AS autor
+  const sql = `SELECT a.id, a.pasta, a.nome, a.tipo, a.tamanho, a.origem, a.criado_em, a.status, a.url, u.nome AS autor
                FROM arquivos a LEFT JOIN users u ON u.id = a.criado_por
                WHERE a.cliente_id = ? ${pasta ? "AND a.pasta = ?" : ""} ORDER BY a.id DESC`;
   res.json(pasta ? db.prepare(sql).all(c.id, pasta) : db.prepare(sql).all(c.id));
@@ -245,6 +246,38 @@ app.post("/api/clientes/:id/arquivos", exigirLogin, upload.array("arquivos"), as
     return erro(res, 502, `Falha ao guardar o arquivo: ${e.message}`);
   }
   res.json({ ids });
+});
+
+// ---------- links do Google Drive guardados sem baixar ----------
+const LINK_DRIVE = /^https:\/\/(drive|docs)\.google\.com\//i;
+
+async function tituloDoDrive(url) {
+  // pastas públicas expõem o nome na página de visualização; arquivos, na página do arquivo
+  const pasta = url.match(/\/folders\/([\w-]+)/);
+  const alvo = pasta ? `https://drive.google.com/embeddedfolderview?id=${pasta[1]}` : url;
+  try {
+    const r = await fetch(alvo, { signal: AbortSignal.timeout(8000), headers: { "User-Agent": "Mozilla/5.0" } });
+    const h = await r.text();
+    const t = h.match(/<title>([^<]*)<\/title>/i)?.[1]?.replace(/ - Google Drive$/i, "").trim();
+    return t && !/^(Google Drive|Meet Google Drive)/i.test(t) ? t : null;
+  } catch {
+    return null;
+  }
+}
+
+app.post("/api/clientes/:id/links", exigirLogin, async (req, res) => {
+  const c = clienteOu404(req, res);
+  if (!c) return;
+  const url = String(req.body.url || "").trim();
+  const pasta = req.body.pasta;
+  if (!LINK_DRIVE.test(url)) return erro(res, 400, "Cole um link do Google Drive (arquivo ou pasta).");
+  if (!PASTAS.includes(pasta)) return erro(res, 400, "Pasta inválida.");
+  const ehPasta = /\/folders\//.test(url);
+  const nome = String(req.body.nome || "").trim().slice(0, 150) || (await tituloDoDrive(url)) || (ehPasta ? "Pasta do Google Drive" : "Arquivo do Google Drive");
+  const r = db
+    .prepare("INSERT INTO arquivos (cliente_id, pasta, nome, caminho, tipo, tamanho, origem, criado_por, url) VALUES (?,?,?,?,?,?,?,?,?)")
+    .run(c.id, pasta, nome, "", "link", 0, ehPasta ? "Pasta do Google Drive (link)" : "Arquivo do Google Drive (link)", req.user.id, url);
+  res.json({ id: Number(r.lastInsertRowid) });
 });
 
 // ---------- upload em partes (retomável) ----------
@@ -333,6 +366,7 @@ function arquivoOu404(req, res) {
 app.get("/api/arquivos/:id/conteudo", exigirLogin, async (req, res) => {
   const a = arquivoOu404(req, res);
   if (!a) return;
+  if (a.tipo === "link") return res.redirect(a.url);
   // Só mídia comum abre no navegador; o resto (html, svg, js...) sempre baixa, e sem executar nada.
   const seguro = ["video", "audio"].includes(a.tipo) || (a.tipo === "imagem" && !/\.svg$/i.test(a.nome));
   if (req.query.baixar || !seguro) res.attachment(a.nome);
@@ -349,6 +383,10 @@ app.patch("/api/arquivos/:id", exigirLogin, async (req, res) => {
   const pasta = req.body.pasta;
   if (!PASTAS.includes(pasta) || pasta === a.pasta) return erro(res, 400, "Pasta inválida.");
   if (a.status !== "ok") return erro(res, 409, "Aguarde o arquivo terminar de subir para o Google Drive.");
+  if (a.tipo === "link") {
+    db.prepare("UPDATE arquivos SET pasta = ? WHERE id = ?").run(pasta, a.id);
+    return res.json({ id: a.id });
+  }
   const nome = storage.nomeLivreLocal(a.cliente_id, pasta, nomeSeguro(a.nome));
   const { caminho } = await storage.moverPasta(a, pasta, nome);
   db.prepare("UPDATE arquivos SET pasta = ?, nome = ?, caminho = ? WHERE id = ?").run(pasta, nome, caminho, a.id);
@@ -386,6 +424,77 @@ app.get("/api/tarefas/:id", exigirLogin, (req, res) => {
   const t = db.prepare("SELECT * FROM tarefas WHERE id = ?").get(id(req.params.id));
   if (!t) return erro(res, 404, "Tarefa não encontrada.");
   res.json(t);
+});
+
+// ---------- conversas com o Assistente IA ----------
+function conversaOu404(req, res) {
+  const c = db.prepare("SELECT * FROM conversas WHERE id = ?").get(id(req.params.conversa));
+  if (!c) erro(res, 404, "Conversa não encontrada.");
+  return c;
+}
+
+app.get("/api/clientes/:id/conversas", exigirLogin, (req, res) => {
+  const c = clienteOu404(req, res);
+  if (!c) return;
+  res.json(chat.listarConversas(c.id));
+});
+
+app.post("/api/clientes/:id/conversas", exigirLogin, (req, res) => {
+  const c = clienteOu404(req, res);
+  if (!c) return;
+  if (!process.env.ANTHROPIC_API_KEY) return erro(res, 400, "Assistente IA desativado: configure ANTHROPIC_API_KEY no servidor.");
+  res.json({ id: chat.criarConversa(c.id, req.user.id) });
+});
+
+app.get("/api/conversas/:conversa", exigirLogin, (req, res) => {
+  const r = chat.lerConversa(id(req.params.conversa), Number(req.query.desde) || 0);
+  if (!r) return erro(res, 404, "Conversa não encontrada.");
+  res.json(r);
+});
+
+app.post("/api/conversas/:conversa/mensagens", exigirLogin, (req, res) => {
+  const c = conversaOu404(req, res);
+  if (!c) return;
+  const texto = String(req.body.texto || "").trim();
+  if (!texto) return erro(res, 400, "Escreva uma mensagem.");
+  if (texto.length > 20000) return erro(res, 400, "Mensagem muito longa.");
+  const arquivoIds = (Array.isArray(req.body.arquivo_ids) ? req.body.arquivo_ids : []).map(Number).filter(Number.isInteger).slice(0, 30);
+  try {
+    chat.enviarMensagem({ conversaId: c.id, texto, arquivoIds, user: req.user });
+  } catch (e) {
+    return erro(res, 409, e.message);
+  }
+  res.json({ ok: true });
+});
+
+app.post("/api/conversas/:conversa/parar", exigirLogin, (req, res) => {
+  const c = conversaOu404(req, res);
+  if (!c) return;
+  chat.parar(c.id);
+  res.json({ ok: true });
+});
+
+app.patch("/api/conversas/:conversa", exigirLogin, (req, res) => {
+  const c = conversaOu404(req, res);
+  if (!c) return;
+  const titulo = String(req.body.titulo || "").trim().slice(0, 80);
+  if (!titulo) return erro(res, 400, "Título vazio.");
+  db.prepare("UPDATE conversas SET titulo = ? WHERE id = ?").run(titulo, c.id);
+  res.json({ ok: true });
+});
+
+app.delete("/api/conversas/:conversa", exigirLogin, (req, res) => {
+  const c = conversaOu404(req, res);
+  if (!c) return;
+  chat.excluirConversa(c.id);
+  res.json({ ok: true });
+});
+
+// arquivos citados no chat (para mostrar prévias)
+app.get("/api/arquivos", exigirLogin, (req, res) => {
+  const ids = String(req.query.ids || "").split(",").map(Number).filter(Number.isInteger).slice(0, 100);
+  if (!ids.length) return res.json([]);
+  res.json(db.prepare(`SELECT id, cliente_id, pasta, nome, tipo, tamanho, status FROM arquivos WHERE id IN (${ids.map(() => "?").join(",")})`).all(...ids));
 });
 
 app.get("/healthz", (req, res) => res.send("ok"));

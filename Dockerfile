@@ -27,11 +27,17 @@ RUN fc-cache -f >/dev/null
 
 COPY . .
 
+# Usuário sem privilégios para rodar o sistema (o Claude Code não roda sem permissões como root)
+RUN useradd --create-home --uid 10001 spec
+ENV HF_HOME=/opt/hf-cache
+RUN mkdir -p /opt/hf-cache && chown spec:spec /opt/hf-cache
+
 # Pré-baixa o modelo Whisper padrão para a primeira legenda não demorar
-RUN python -c "from faster_whisper import WhisperModel; WhisperModel('small', device='cpu', compute_type='int8')" || true
+RUN su spec -s /bin/sh -c "HF_HOME=/opt/hf-cache /opt/venv/bin/python -c \"from faster_whisper import WhisperModel; WhisperModel('small', device='cpu', compute_type='int8')\"" || true
 
 ENV NODE_ENV=production PORT=3000 DATA_DIR=/data
 VOLUME ["/data"]
 EXPOSE 3000
 HEALTHCHECK CMD curl -fsS http://localhost:3000/healthz || exit 1
-CMD ["node", "--disable-warning=ExperimentalWarning", "app/start.js"]
+# Começa como root só para ajustar o dono do disco /data (montado pelo provedor) e já troca para "spec".
+CMD ["sh", "-c", "mkdir -p /data && find /data ! -user spec -exec chown spec:spec {} + 2>/dev/null; exec setpriv --reuid=spec --regid=spec --init-groups env HOME=/home/spec node --disable-warning=ExperimentalWarning app/start.js"]

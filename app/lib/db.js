@@ -77,6 +77,8 @@ CREATE TABLE IF NOT EXISTS tarefas (
 const colunas = db.prepare("PRAGMA table_info(arquivos)").all().map((c) => c.name);
 if (!colunas.includes("drive_id")) db.exec("ALTER TABLE arquivos ADD COLUMN drive_id TEXT");
 // status: ok | enviando (recebido pelo servidor, subindo para o Drive) | erro_envio (vai tentar de novo)
+// url: arquivos guardados só como link (ex.: pasta do Drive do cliente), sem baixar
+if (!colunas.includes("url")) db.exec("ALTER TABLE arquivos ADD COLUMN url TEXT");
 if (!colunas.includes("status")) db.exec("ALTER TABLE arquivos ADD COLUMN status TEXT NOT NULL DEFAULT 'ok'");
 
 // Tarefas que estavam rodando quando o servidor caiu não vão terminar.
