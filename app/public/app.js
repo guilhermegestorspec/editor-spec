@@ -181,7 +181,7 @@ function casca(ativo, conteudo) {
       <nav class="nav">
         ${item("#/clientes", "Clientes", ic.clientes, "clientes")}
         ${item("#/tarefas", "Tarefas", ic.tarefas, "tarefas").replace("</span></a>", `</span><em class="contador" id="contador-atv" hidden></em></a>`)}
-        ${eu.papel === "admin" ? item("#/usuarios", "Usuários e acessos", ic.usuarios, "usuarios") : ""}
+        ${eu.papel === "admin" && !estado.config?.acessoUnico ? item("#/usuarios", "Usuários e acessos", ic.usuarios, "usuarios") : ""}
         ${item("#/conta", "Minha conta", ic.conta, "conta")}
       </nav>
       <div class="rodape">
@@ -1211,10 +1211,11 @@ const custoTxt = (v) => (v ? `US$ ${v.toFixed(2)}` : "—");
 const STATUS_ATV = { na_fila: "Na fila", rodando: "Processando", ok: "Concluído", erro: "Erro", cancelado: "Interrompido" };
 
 function tituloAtividade(a) {
-  if (a.fonte === "ia") return a.titulo;
+  if (a.fonte !== "tarefa") return a.titulo;
   return `${NOME_TAREFA[a.tipo] || a.tipo}${resumoTarefa(a) ? " · " + resumoTarefa(a) : ""}`;
 }
 function linkAtividade(a) {
+  if (a.fonte === "claude") return `#/cliente/${a.cliente_id}/editados`;
   return a.fonte === "ia" ? `#/cliente/${a.cliente_id}/ia/${a.conversa_id}` : null;
 }
 
@@ -1237,7 +1238,7 @@ async function listaTarefas(alvo, clienteId) {
     const href = linkAtividade(a);
     return `<article class="atv ${a.status}">
       <div class="atv-topo">
-        <span class="atv-tipo">${a.fonte === "ia" ? `${ic.ia || "🤖"} Assistente IA${a.modo === "detalhado" ? " · detalhado" : ""}` : esc(NOME_TAREFA[a.tipo] || a.tipo)}</span>
+        <span class="atv-tipo">${a.fonte === "claude" ? `${ic.ia} Claude Code` : a.fonte === "ia" ? `${ic.ia} Assistente IA${a.modo === "detalhado" ? " · detalhado" : ""}` : esc(NOME_TAREFA[a.tipo] || a.tipo)}</span>
         <span class="badge ${a.status}">${STATUS_ATV[a.status]}</span>
       </div>
       <b class="atv-titulo">${esc(tituloAtividade(a)).slice(0, 220)}</b>
@@ -1248,7 +1249,7 @@ async function listaTarefas(alvo, clienteId) {
         <span class="muted">${esc(a.autor || "")}</span>
       </div>
       <div class="acoes">
-        ${href ? `<a class="btn pequeno" href="${href}">Abrir conversa</a>` : `<button class="btn pequeno" data-log="${a.id}">Ver log</button>`}
+        ${href ? `<a class="btn pequeno" href="${href}">${a.fonte === "claude" ? "Ver entregas" : "Abrir conversa"}</a>` : `<button class="btn pequeno" data-log="${a.id}">Ver log</button>`}
         ${a.fonte === "ia" ? `<button class="btn pequeno fantasma perigo" data-parar="${a.conversa_id}">Parar</button>` : ""}
       </div>
     </article>`;
@@ -1282,7 +1283,7 @@ async function listaTarefas(alvo, clienteId) {
             const href = linkAtividade(a);
             return `<div class="atv-linha">
               <div class="atv-linha-info">
-                <span class="muted small">${a.fonte === "ia" ? "Assistente IA" : esc(NOME_TAREFA[a.tipo] || a.tipo)}${clienteId ? "" : ` · <a href="#/cliente/${a.cliente_id}/ia">${esc(a.cliente || "")}</a>`} · ${esc(a.autor || "")} · ${quando(a.terminado_em || a.criado_em)}</span>
+                <span class="muted small">${a.fonte === "claude" ? "Claude Code" : a.fonte === "ia" ? "Assistente IA" : esc(NOME_TAREFA[a.tipo] || a.tipo)}${clienteId ? "" : ` · <a href="#/cliente/${a.cliente_id}/ia">${esc(a.cliente || "")}</a>`} · ${esc(a.autor || "")} · ${quando(a.terminado_em || a.criado_em)}</span>
                 <b>${esc(tituloAtividade(a)).slice(0, 160)}</b>
               </div>
               <div class="atv-linha-num">
@@ -1449,9 +1450,56 @@ function telaConta() {
       <p class="muted small">Instale o Spec Studio no celular: no <b>iPhone</b> (Safari) toque em Compartilhar → <b>Adicionar à Tela de Início</b>;
       no <b>Android</b> (Chrome) toque no menu ⋮ → <b>Instalar app</b>. Depois abra pelo ícone e ative as notificações abaixo.</p>
       ${botaoNotificacoesHtml()}
+    </section>
+    <section class="card" style="max-width:560px;margin-top:18px">
+      <h3 style="margin-top:0">Integração com o Claude Code</h3>
+      <p class="muted small">Permite que o Claude Code (claude.ai/code ou app) leia os clientes, a memória e os brutos daqui e devolva as
+      entregas direto na biblioteca, usando o processamento e a assinatura do Claude Code. A chave aparece uma única vez:
+      cole-a apenas no formulário seguro que o Claude Code abrir (nunca no chat).</p>
+      <div id="chaves"></div>
+      <div class="acoes"><button class="btn primario" id="nova-chave">Gerar chave de integração</button></div>
     </section>`
   );
   ligarBotaoNotificacoes(el, { sempre: true });
+  const listarChaves = async () => {
+    const ks = await api("/chaves").catch(() => []);
+    el.querySelector("#chaves").innerHTML = ks.length
+      ? `<div class="atv-lista">${ks
+          .map((k) => `<div class="atv-linha"><div class="atv-linha-info"><b>${esc(k.nome)} · ••••${esc(k.final)}</b>
+            <span class="muted small">criada ${quando(k.criado_em)} · último uso ${k.ultimo_uso ? quando(k.ultimo_uso) : "nunca"}</span></div>
+            <button class="btn pequeno fantasma perigo" data-revogar="${k.id}">Revogar</button></div>`)
+          .join("")}</div>`
+      : `<p class="muted small">Nenhuma chave criada.</p>`;
+    el.querySelectorAll("[data-revogar]").forEach(
+      (b) =>
+        (b.onclick = async () => {
+          if (!confirm("Revogar esta chave? O Claude Code perde o acesso até você gerar outra.")) return;
+          await api(`/chaves/${b.dataset.revogar}`, { method: "DELETE" });
+          listarChaves();
+        })
+    );
+  };
+  listarChaves();
+  el.querySelector("#nova-chave").onclick = async () => {
+    const { chave } = await api("/chaves", { method: "POST", body: { nome: "Claude Code" } });
+    const d = modal(
+      "Chave de integração criada",
+      `<p class="muted small">Copie agora: ela não será mostrada de novo. Cole somente no formulário seguro do Claude Code.</p>
+       <input readonly id="valor-chave" value="${esc(chave)}" style="font-family:monospace">
+       <div class="acoes"><button class="btn primario" id="copiar">Copiar</button></div>`
+    );
+    d.querySelector("#copiar").onclick = async () => {
+      const inp = d.querySelector("#valor-chave");
+      inp.select();
+      try {
+        await navigator.clipboard.writeText(chave);
+      } catch {
+        document.execCommand("copy");
+      }
+      toast("Chave copiada.");
+    };
+    listarChaves();
+  };
   el.querySelector("#f").onsubmit = async (e) => {
     e.preventDefault();
     try {

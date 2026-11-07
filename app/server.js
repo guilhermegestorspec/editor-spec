@@ -8,6 +8,7 @@ import { db, DATA_DIR, PASTAS } from "./lib/db.js";
 import {
   COOKIE, hashSenha, conferirSenha, validarSenha, dominioPermitido, criarSessao,
   exigirLogin, exigirAdmin, garantirAdmin, podeTentarLogin, registrarFalha, limparFalhas,
+  criarChave, chaveNoCabecalho, garantirAcessoUnico, acessoUnico,
 } from "./lib/auth.js";
 import { enfileirar, validarParams, registrarArquivo, nomeSeguro, retomarFila } from "./lib/jobs.js";
 import * as storage from "./lib/storage.js";
@@ -37,7 +38,8 @@ app.use(express.json({ limit: "1mb" }));
 
 // Proteção CSRF: requisições que alteram dados precisam do cabeçalho X-Spec (fetch do app).
 app.use("/api", (req, res, next) => {
-  if (!["GET", "HEAD"].includes(req.method) && req.get("X-Spec") !== "1") {
+  // chave de integração no cabeçalho Authorization não é enviada sozinha pelo navegador, então não há risco de CSRF
+  if (!["GET", "HEAD"].includes(req.method) && req.get("X-Spec") !== "1" && !chaveNoCabecalho(req)) {
     return res.status(403).json({ erro: "Requisição bloqueada." });
   }
   next();
@@ -92,7 +94,61 @@ app.get("/api/config", exigirLogin, (req, res) => {
     modelosWhisper: MODELOS_WHISPER,
     iaAtiva: Boolean(process.env.ANTHROPIC_API_KEY),
     dominio: process.env.SPEC_EMAIL_DOMAIN || null,
+    acessoUnico: Boolean(acessoUnico()),
   });
+});
+
+// ---------- chaves de integração (Claude Code) ----------
+const soComSessao = (req, res, next) => (req.user.viaChave ? erro(res, 403, "Use o login para gerenciar chaves.") : next());
+app.get("/api/chaves", exigirLogin, soComSessao, (req, res) => {
+  res.json(db.prepare("SELECT id, nome, final, criado_em, ultimo_uso FROM chaves_api WHERE user_id = ? ORDER BY id DESC").all(req.user.id));
+});
+app.post("/api/chaves", exigirLogin, soComSessao, (req, res) => {
+  res.json({ chave: criarChave(req.user.id, req.body.nome) });
+});
+app.delete("/api/chaves/:id", exigirLogin, soComSessao, (req, res) => {
+  db.prepare("DELETE FROM chaves_api WHERE id = ? AND user_id = ?").run(id(req.params.id), req.user.id);
+  res.json({ ok: true });
+});
+
+// ---------- trabalhos feitos fora do sistema (Claude Code) aparecem no painel de Tarefas ----------
+db.exec(`
+CREATE TABLE IF NOT EXISTS externos (
+  id INTEGER PRIMARY KEY,
+  cliente_id INTEGER NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  titulo TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'rodando',
+  etapa TEXT NOT NULL DEFAULT '',
+  entregas INTEGER NOT NULL DEFAULT 0,
+  criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+  terminado_em TEXT
+);
+`);
+app.post("/api/clientes/:id/externos", exigirLogin, (req, res) => {
+  const c = clienteOu404(req, res);
+  if (!c) return;
+  const titulo = String(req.body.titulo || "").trim().slice(0, 300);
+  if (!titulo) return erro(res, 400, "Informe o título.");
+  const r = db.prepare("INSERT INTO externos (cliente_id, user_id, titulo, etapa) VALUES (?,?,?,?)").run(c.id, req.user.id, titulo, "Começando");
+  res.json({ id: Number(r.lastInsertRowid) });
+});
+app.patch("/api/externos/:id", exigirLogin, async (req, res) => {
+  const t = db.prepare("SELECT e.*, c.nome AS cliente FROM externos e JOIN clientes c ON c.id = e.cliente_id WHERE e.id = ?").get(id(req.params.id));
+  if (!t) return erro(res, 404, "Trabalho não encontrado.");
+  const status = ["rodando", "ok", "erro", "cancelado"].includes(req.body.status) ? req.body.status : t.status;
+  const etapa = req.body.etapa !== undefined ? String(req.body.etapa).slice(0, 200) : t.etapa;
+  const entregas = req.body.entregas !== undefined ? Math.max(0, Number(req.body.entregas) || 0) : t.entregas;
+  const fim = status !== "rodando" && t.status === "rodando";
+  db.prepare(`UPDATE externos SET status = ?, etapa = ?, entregas = ?${fim ? ", terminado_em = datetime('now')" : ""} WHERE id = ?`).run(status, etapa, entregas, t.id);
+  if (fim && status !== "cancelado")
+    push.notificar(t.user_id, {
+      titulo: `${status === "ok" ? "✅" : "⚠️"} ${t.cliente}: ${status === "ok" ? "pronto" : "parou com erro"}`,
+      corpo: `${t.titulo}${entregas ? ` · ${entregas} arquivo(s) na biblioteca` : ""}`,
+      url: `/#/cliente/${t.cliente_id}/editados`,
+      tag: `externo-${t.id}`,
+    }).catch(() => {});
+  res.json({ ok: true });
 });
 
 // ---------- usuários (admin) ----------
@@ -103,6 +159,7 @@ app.get("/api/usuarios", exigirLogin, exigirAdmin, (req, res) => {
 });
 
 app.post("/api/usuarios", exigirLogin, exigirAdmin, (req, res) => {
+  if (acessoUnico()) return erro(res, 403, "O sistema está em modo de acesso único: não é possível criar usuários.");
   const nome = String(req.body.nome || "").trim();
   const email = String(req.body.email || "").trim().toLowerCase();
   const papel = req.body.papel === "admin" ? "admin" : "editor";
@@ -300,7 +357,8 @@ app.post("/api/clientes/:id/envios", exigirLogin, (req, res) => {
   const idEnvio = crypto.randomUUID();
   const arquivo = path.join(ENVIOS_DIR, idEnvio + ".part");
   fs.writeFileSync(arquivo, "");
-  enviosAbertos.set(idEnvio, { clienteId: c.id, pasta, nome: String(nome).slice(0, 255), tamanho, userId: req.user.id, arquivo, criado: Date.now() });
+  const origem = String(req.body.origem || "upload").slice(0, 60);
+  enviosAbertos.set(idEnvio, { clienteId: c.id, pasta, nome: String(nome).slice(0, 255), tamanho, userId: req.user.id, arquivo, criado: Date.now(), origem });
   res.json({ id: idEnvio, parte: 32 * 1024 * 1024 });
 });
 
@@ -349,7 +407,7 @@ app.post("/api/envios/:envio/concluir", exigirLogin, async (req, res) => {
   const recebido = fs.statSync(e.arquivo).size;
   if (recebido !== e.tamanho) return erro(res, 409, `Arquivo incompleto (${recebido} de ${e.tamanho} bytes).`);
   enviosAbertos.delete(req.params.envio);
-  const id = await registrarArquivo({ clienteId: e.clienteId, pasta: e.pasta, origemPath: e.arquivo, nome: e.nome, origem: "upload", userId: e.userId, adiado: true });
+  const id = await registrarArquivo({ clienteId: e.clienteId, pasta: e.pasta, origemPath: e.arquivo, nome: e.nome, origem: e.origem || "upload", userId: e.userId, adiado: true });
   res.json({ id });
 });
 
@@ -470,11 +528,25 @@ app.get("/api/atividades", exigirLogin, (req, res) => {
         etapa: t.status === "rodando" ? etapaDoLog(t.fim_log) : "", autor: t.autor, resultado: t.resultado,
         criado_em: t.criado_em, terminado_em: t.terminado_em, decorrido: t.decorrido, duracao: t.duracao,
       }));
+  const externos = (cond, lim) =>
+    db
+      .prepare(
+        `SELECT t.*, cl.nome AS cliente, u.nome AS autor,
+                CAST(strftime('%s','now') - strftime('%s', t.criado_em) AS INTEGER) AS decorrido,
+                CAST(strftime('%s', t.terminado_em) - strftime('%s', t.criado_em) AS INTEGER) AS duracao
+         FROM externos t JOIN clientes cl ON cl.id = t.cliente_id LEFT JOIN users u ON u.id = t.user_id
+         WHERE ${cond} ${filtroT} ORDER BY t.id DESC LIMIT ${lim}`
+      )
+      .all(...args)
+      .map((t) => ({
+        fonte: "claude", id: t.id, cliente_id: t.cliente_id, cliente: t.cliente, titulo: t.titulo, tipo: "claude", status: t.status,
+        etapa: t.etapa, autor: t.autor, entregas: t.entregas, criado_em: t.criado_em, terminado_em: t.terminado_em, decorrido: t.decorrido, duracao: t.duracao,
+      }));
   const ordem = (a, b) => (b.terminado_em || b.criado_em).localeCompare(a.terminado_em || a.criado_em);
-  const andamento = [...turnos("t.status IN ('rodando','na_fila')", 50), ...tarefas("t.status IN ('rodando','na_fila')", 50)].sort(
+  const andamento = [...externos("t.status = 'rodando'", 50), ...turnos("t.status IN ('rodando','na_fila')", 50), ...tarefas("t.status IN ('rodando','na_fila')", 50)].sort(
     (a, b) => (a.status === b.status ? 0 : a.status === "rodando" ? -1 : 1)
   );
-  const concluidos = [...turnos("t.status NOT IN ('rodando','na_fila')", 60), ...tarefas("t.status NOT IN ('rodando','na_fila')", 60)].sort(ordem).slice(0, 80);
+  const concluidos = [...externos("t.status <> 'rodando'", 60), ...turnos("t.status NOT IN ('rodando','na_fila')", 60), ...tarefas("t.status NOT IN ('rodando','na_fila')", 60)].sort(ordem).slice(0, 80);
   const hoje = db
     .prepare(
       `SELECT COUNT(*) AS pedidos, COALESCE(SUM(tokens_entrada + tokens_cache + tokens_saida), 0) AS tokens, COALESCE(SUM(custo), 0) AS custo
@@ -494,7 +566,8 @@ app.get("/api/atividades", exigirLogin, (req, res) => {
 app.get("/api/atividades/contagem", exigirLogin, (req, res) => {
   const n =
     db.prepare("SELECT COUNT(*) n FROM turnos WHERE status IN ('rodando','na_fila')").get().n +
-    db.prepare("SELECT COUNT(*) n FROM tarefas WHERE status IN ('rodando','na_fila')").get().n;
+    db.prepare("SELECT COUNT(*) n FROM tarefas WHERE status IN ('rodando','na_fila')").get().n +
+    db.prepare("SELECT COUNT(*) n FROM externos WHERE status = 'rodando'").get().n;
   res.json({ andamento: n });
 });
 
@@ -617,6 +690,7 @@ app.use((err, req, res, next) => {
 });
 
 garantirAdmin();
+garantirAcessoUnico();
 try {
   console.log(await storage.verificar());
 } catch (e) {

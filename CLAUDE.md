@@ -57,7 +57,12 @@ Portal da equipe em `app/` (Node 22 + Express + SQLite embutido, sem build):
 - App no celular (PWA): `manifest.webmanifest`, `sw.js`, ícones em `marca/app-*.png`. Notificações Web Push
   (`app/lib/push.js`, chaves VAPID geradas e guardadas no banco) quando um pedido ao assistente ou uma tarefa termina;
   ativar em "Minha conta" ou no aviso da aba Tarefas. No iPhone exige o app adicionado à Tela de Início (iOS 16.4+).
-- Aba "Usuários e acessos" (admin): criar, bloquear, trocar papel e senha.
+- Aba "Usuários e acessos" (admin): criar, bloquear, trocar papel e senha. Com `ACESSO_UNICO=<email>` o sistema fica com uma
+  só conta (criada com `ADMIN_PASSWORD` na primeira subida; os demais usuários são removidos e não dá para criar outros).
+- **Integração com o Claude Code** (modo atual de produção): o processamento pesado roda no Claude Code; o Studio é a central.
+  Skill `.claude/skills/spec-studio` + `scripts/studio.mjs` (clientes, memória, arquivos, baixar, enviar, inicio/etapa/fim no
+  painel de Tarefas). Autenticação por chave `spec_...` (Minha conta → Gerar chave; tabela `chaves_api`, só o hash é guardado;
+  aceita `Authorization: Bearer`, dispensa o cabeçalho CSRF). Trabalhos aparecem em Tarefas como "Claude Code" (tabela `externos`).
 - Identidade visual Spec: #222222, #00F28A, branco, fonte Ubuntu; temas escuro/claro. Logos em `app/public/marca/`.
 - Armazenamento: disco local por padrão; com `DRIVE_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON` usa o Drive compartilhado da Spec
   (`Spec Studio/Clientes/<Cliente>/{Brutos, Vídeos editados, Gráficos, Referências}`) e faz backup/restauração do banco em `_sistema/`.

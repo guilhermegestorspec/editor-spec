@@ -46,7 +46,40 @@ function lerCookie(req, nome) {
   return null;
 }
 
+// ---------- chaves de integração (Claude Code / scripts) ----------
+db.exec(`
+CREATE TABLE IF NOT EXISTS chaves_api (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  nome TEXT NOT NULL,
+  hash TEXT NOT NULL UNIQUE,
+  final TEXT NOT NULL,
+  criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+  ultimo_uso TEXT
+);
+`);
+const hashChave = (k) => crypto.createHash("sha256").update(k).digest("hex");
+
+export function criarChave(userId, nome) {
+  const chave = "spec_" + crypto.randomBytes(32).toString("base64url");
+  db.prepare("INSERT INTO chaves_api (user_id, nome, hash, final) VALUES (?,?,?,?)").run(userId, String(nome || "Claude Code").slice(0, 60), hashChave(chave), chave.slice(-4));
+  return chave;
+}
+
+export const chaveNoCabecalho = (req) => /^Bearer spec_[\w-]{20,}$/.test(req.get?.("authorization") || req.headers.authorization || "");
+
+function usuarioDaChave(req) {
+  const chave = String(req.headers.authorization || "").slice(7);
+  const row = db
+    .prepare("SELECT k.id AS kid, u.id, u.nome, u.email, u.papel, u.ativo FROM chaves_api k JOIN users u ON u.id = k.user_id WHERE k.hash = ?")
+    .get(hashChave(chave));
+  if (!row || !row.ativo) return null;
+  db.prepare("UPDATE chaves_api SET ultimo_uso = datetime('now') WHERE id = ?").run(row.kid);
+  return { id: row.id, nome: row.nome, email: row.email, papel: row.papel, viaChave: true };
+}
+
 export function usuarioDaRequisicao(req) {
+  if (chaveNoCabecalho(req)) return usuarioDaChave(req);
   const token = lerCookie(req, COOKIE);
   if (!token) return null;
   const row = db
@@ -86,6 +119,32 @@ export function registrarFalha(chave) {
 }
 export function limparFalhas(chave) {
   tentativas.delete(chave);
+}
+
+// Modo de acesso único (ACESSO_UNICO=<email>): só essa conta existe e entra no sistema.
+// Na primeira vez a conta é criada com ADMIN_PASSWORD; os demais usuários são removidos.
+export const acessoUnico = () => (process.env.ACESSO_UNICO || "").trim().toLowerCase();
+
+export function garantirAcessoUnico() {
+  const email = acessoUnico();
+  if (!email) return;
+  let u = db.prepare("SELECT * FROM users WHERE lower(email) = ?").get(email);
+  if (!u) {
+    const senha = process.env.ADMIN_PASSWORD;
+    if (!senha || validarSenha(senha)) {
+      console.error("ACESSO_UNICO definido, mas falta ADMIN_PASSWORD (mín. 8 caracteres) para criar a conta. Nada foi alterado.");
+      return;
+    }
+    db.prepare("INSERT INTO users (nome, email, senha_hash, papel) VALUES (?,?,?, 'admin')").run("Spec", email, hashSenha(senha));
+    u = db.prepare("SELECT * FROM users WHERE lower(email) = ?").get(email);
+    console.log(`Acesso único: conta ${email} criada.`);
+  }
+  db.prepare("UPDATE users SET papel = 'admin', ativo = 1 WHERE id = ?").run(u.id);
+  const outros = db.prepare("SELECT COUNT(*) n FROM users WHERE id <> ?").get(u.id).n;
+  if (outros) {
+    db.prepare("DELETE FROM users WHERE id <> ?").run(u.id); // sessões, chaves e inscrições saem junto (cascade)
+    console.log(`Acesso único: ${outros} outro(s) usuário(s) removido(s).`);
+  }
 }
 
 // Primeiro acesso: cria o administrador a partir das variáveis de ambiente
