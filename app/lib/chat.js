@@ -104,6 +104,7 @@ export const MEMORIA_MODELO = (cl) => `# Memória do cliente: ${cl.nome}
 
 const ativos = new Map(); // conversaId -> { q, parar }
 const fila = [];
+const espera = new Map(); // conversaId -> pedido mandado enquanto o assistente trabalhava nesta conversa
 
 export const dirConversa = (id) => path.join(DATA_DIR, "conversas", String(id));
 
@@ -137,9 +138,10 @@ export function lerConversa(id, desde = 0) {
     .prepare(
       `SELECT status, etapa, modo, tokens_entrada + tokens_cache + tokens_saida AS tokens, custo,
               CAST(strftime('%s','now') - strftime('%s', COALESCE(iniciado_em, criado_em)) AS INTEGER) AS decorrido
-       FROM turnos WHERE conversa_id = ? ORDER BY id DESC LIMIT 1`
+       FROM turnos WHERE conversa_id = ? ORDER BY (status = 'rodando') DESC, id DESC LIMIT 1`
     )
     .get(id);
+  if (turno) turno.esperando = espera.has(id) ? 1 : 0;
   return { conversa: c, turno, mensagens: msgs.map((m) => ({ ...m, dados: m.dados ? JSON.parse(m.dados) : null })) };
 }
 
@@ -150,6 +152,12 @@ export function excluirConversa(id) {
 }
 
 export function parar(id) {
+  const e = espera.get(id);
+  if (e) {
+    espera.delete(id);
+    db.prepare("UPDATE turnos SET status = 'cancelado', etapa = 'Cancelado', terminado_em = datetime('now') WHERE id = ?").run(e.turnoId);
+    addMsg(id, "erro", "Mensagens na fila desta conversa canceladas.");
+  }
   const i = fila.findIndex((f) => f.conversaId === id);
   if (i >= 0) {
     const [f] = fila.splice(i, 1);
@@ -165,23 +173,62 @@ export function parar(id) {
 export function enviarMensagem({ conversaId, texto, arquivoIds = [], user, modo = "rapido" }) {
   const c = db.prepare("SELECT * FROM conversas WHERE id = ?").get(conversaId);
   if (!c) throw new Error("Conversa não encontrada.");
-  if (c.status !== "ociosa") throw new Error("O assistente ainda está trabalhando nesta conversa. Aguarde ou clique em Parar.");
   const anexos = arquivoIds.length
     ? db.prepare(`SELECT id, nome, pasta, tipo FROM arquivos WHERE cliente_id = ? AND id IN (${arquivoIds.map(() => "?").join(",")})`).all(c.cliente_id, ...arquivoIds)
     : [];
-  addMsg(conversaId, "usuario", texto, { autor: user.nome, anexos });
+  const ocupada = c.status !== "ociosa";
+  addMsg(conversaId, "usuario", texto, { autor: user.nome, anexos, ...(ocupada ? { na_fila: true } : {}) });
   if (c.titulo === "Nova conversa") {
     const t = texto.replace(/\s+/g, " ").trim();
     db.prepare("UPDATE conversas SET titulo = ? WHERE id = ?").run(t.length > 60 ? t.slice(0, 57) + "…" : t, conversaId);
   }
-  db.prepare("UPDATE conversas SET status = 'na_fila' WHERE id = ?").run(conversaId);
   if (!ESFORCO[modo]) modo = "rapido";
+
+  // Assistente ocupado nesta conversa: a mensagem entra na fila dela (várias mensagens viram um único próximo pedido).
+  if (ocupada) {
+    const junto = fila.find((f) => f.conversaId === conversaId) || espera.get(conversaId);
+    if (junto) {
+      junto.texto += `\n\n[Mensagem adicional da equipe]\n${texto}`;
+      junto.anexos.push(...anexos.filter((a) => !junto.anexos.some((x) => x.id === a.id)));
+      if (modo === "detalhado") junto.modo = "detalhado";
+      db.prepare("UPDATE turnos SET pedido = substr(pedido || ' + ' || ?, 1, 500), modo = ? WHERE id = ?").run(texto.slice(0, 200), junto.modo, junto.turnoId);
+      return { na_fila: true };
+    }
+    const turnoId = Number(
+      db
+        .prepare("INSERT INTO turnos (conversa_id, cliente_id, user_id, pedido, modo, etapa) VALUES (?,?,?,?,?,?)")
+        .run(conversaId, c.cliente_id, user.id, texto.slice(0, 500), modo, "Aguardando o pedido anterior desta conversa terminar").lastInsertRowid
+    );
+    espera.set(conversaId, {
+      conversaId,
+      texto: `[Mensagem enviada pela equipe enquanto você trabalhava no pedido anterior — atenda agora]\n${texto}`,
+      anexos: [...anexos],
+      userId: user.id,
+      turnoId,
+      modo,
+    });
+    return { na_fila: true };
+  }
+
+  db.prepare("UPDATE conversas SET status = 'na_fila' WHERE id = ?").run(conversaId);
   const turnoId = Number(
     db
       .prepare("INSERT INTO turnos (conversa_id, cliente_id, user_id, pedido, modo, etapa) VALUES (?,?,?,?,?,?)")
       .run(conversaId, c.cliente_id, user.id, texto.slice(0, 500), modo, ativos.size >= SIMULTANEAS ? "Aguardando outra conversa terminar" : "Começando").lastInsertRowid
   );
   fila.push({ conversaId, texto, anexos, userId: user.id, turnoId, modo });
+  setImmediate(proximo);
+  return { na_fila: false };
+}
+
+// Terminado um pedido, começa o que ficou esperando nesta conversa.
+function liberarEspera(conversaId) {
+  const e = espera.get(conversaId);
+  if (!e) return;
+  espera.delete(conversaId);
+  db.prepare("UPDATE conversas SET status = 'na_fila' WHERE id = ?").run(conversaId);
+  db.prepare("UPDATE turnos SET etapa = 'Começando' WHERE id = ?").run(e.turnoId);
+  fila.push(e);
   setImmediate(proximo);
 }
 
@@ -461,6 +508,7 @@ COMO TRABALHAR
   } finally {
     ativos.delete(conversaId);
     db.prepare("UPDATE conversas SET status = 'ociosa' WHERE id = ?").run(conversaId);
+    liberarEspera(conversaId);
     const final = cancelado ? "cancelado" : resultadoFinal;
     db.prepare("UPDATE turnos SET status = ?, etapa = ?, terminado_em = datetime('now') WHERE id = ?").run(
       final, { ok: "Concluído", erro: "Parou com erro", cancelado: "Interrompido" }[final], turnoId

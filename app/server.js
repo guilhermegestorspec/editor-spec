@@ -640,11 +640,11 @@ app.post("/api/conversas/:conversa/mensagens", exigirLogin, (req, res) => {
   if (texto.length > 20000) return erro(res, 400, "Mensagem muito longa.");
   const arquivoIds = (Array.isArray(req.body.arquivo_ids) ? req.body.arquivo_ids : []).map(Number).filter(Number.isInteger).slice(0, 30);
   try {
-    chat.enviarMensagem({ conversaId: c.id, texto, arquivoIds, user: req.user, modo: req.body.modo === "detalhado" ? "detalhado" : "rapido" });
+    const r = chat.enviarMensagem({ conversaId: c.id, texto, arquivoIds, user: req.user, modo: req.body.modo === "detalhado" ? "detalhado" : "rapido" });
+    res.json({ ok: true, ...r });
   } catch (e) {
     return erro(res, 409, e.message);
   }
-  res.json({ ok: true });
 });
 
 app.post("/api/conversas/:conversa/parar", exigirLogin, (req, res) => {

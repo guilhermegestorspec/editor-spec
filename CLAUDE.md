@@ -43,6 +43,7 @@ Portal da equipe em `app/` (Node 22 + Express + SQLite embutido, sem build):
 - Chat (`app/lib/chat.js`): conversas por cliente, uma pasta de trabalho por conversa em
   `DATA_DIR/conversas/<id>`, sessão do Claude Agent SDK retomada a cada mensagem (sessões em `DATA_DIR/claude`).
   Anexos da biblioteca ou do computador; entregas em `saida/` vão para a biblioteca e aparecem no chat. Exige `ANTHROPIC_API_KEY`.
+  Mensagens enviadas enquanto o assistente trabalha entram na fila da conversa (`espera`), juntadas num único próximo pedido.
   Botão "Analisar com IA" nos arquivos abre uma conversa já com o arquivo anexado.
 - Uploads em partes de 32 MB (`/api/clientes/:id/envios`), em segundo plano no navegador; com Drive, o servidor responde ao
   receber e envia ao Drive depois (status `enviando` → `ok`).

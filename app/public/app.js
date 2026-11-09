@@ -986,11 +986,12 @@ async function chatConversa(painel, c, arquivos, conversaId) {
   form.onsubmit = async (e) => {
     e.preventDefault();
     const texto = ta.value.trim();
-    if (!texto || st.status !== "ociosa") return;
+    if (!texto) return;
     const btn = form.querySelector("#enviar");
     btn.disabled = true;
     try {
-      await api(`/conversas/${conversaId}/mensagens`, { method: "POST", body: { texto, arquivo_ids: st.anexos.map((a) => a.id), modo: form.modo.value } });
+      const r = await api(`/conversas/${conversaId}/mensagens`, { method: "POST", body: { texto, arquivo_ids: st.anexos.map((a) => a.id), modo: form.modo.value } });
+      if (r.na_fila) toast("Mensagem na fila: o assistente faz assim que terminar o pedido atual.");
       ta.value = "";
       st.anexos = [];
       desenharChips();
@@ -1029,7 +1030,7 @@ async function chatConversa(painel, c, arquivos, conversaId) {
       const anexos = m.dados?.anexos || [];
       msgs.insertAdjacentHTML(
         "beforeend",
-        `<div class="msg eu"><div class="balao">${markdownLeve(m.texto)}${
+        `<div class="msg eu"><div class="balao">${m.dados?.na_fila ? `<span class="tag-fila">⏳ enviada durante o trabalho — entra em seguida</span>` : ""}${markdownLeve(m.texto)}${
           anexos.length ? `<div class="chips">${anexos.map((a) => `<span class="chip">${esc(a.nome)}</span>`).join("")}</div>` : ""
         }</div><small>${esc(m.dados?.autor || "")} · ${quando(m.criado_em)}</small></div>`
       );
@@ -1079,11 +1080,13 @@ async function chatConversa(painel, c, arquivos, conversaId) {
       st.status === "na_fila"
         ? "Na fila: outra conversa está sendo atendida…"
         : tu && tu.status === "rodando"
-          ? `${tu.etapa || "Trabalhando"} · ${duracaoTxt(tu.decorrido)} · ${tokensTxt(tu.tokens)} tokens`
+          ? `${tu.etapa || "Trabalhando"} · ${duracaoTxt(tu.decorrido)} · ${tokensTxt(tu.tokens)} tokens${tu.esperando ? " · +1 pedido na fila" : ""}`
           : "O assistente está trabalhando…";
     painel.querySelector("#parar").disabled = false;
-    form.querySelector("#enviar").disabled = trabalhando;
-    ta.placeholder = trabalhando ? "Aguarde o assistente terminar para mandar a próxima mensagem…" : "Escreva o que você precisa… (Enter envia, Shift+Enter quebra linha)";
+    form.querySelector("#enviar").textContent = trabalhando ? "Pôr na fila" : "Enviar";
+    ta.placeholder = trabalhando
+      ? "O assistente está trabalhando — pode mandar mais instruções, elas entram na fila desta conversa…"
+      : "Escreva o que você precisa… (Enter envia, Shift+Enter quebra linha)";
     if (rolar) msgs.scrollTop = msgs.scrollHeight;
     clearTimeout(st.timer);
     if (document.body.contains(painel)) st.timer = setTimeout(() => atualizar().catch(() => {}), trabalhando ? 1500 : 6000);

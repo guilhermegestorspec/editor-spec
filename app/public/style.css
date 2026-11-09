@@ -485,3 +485,4 @@ input[type="radio"] { width: 18px; height: 18px; accent-color: var(--verde); fle
 .atv-linha-info { display: grid; gap: 3px; min-width: 0; flex: 1 1 280px; }
 .atv-linha-info b { font-weight: 500; overflow-wrap: anywhere; }
 .atv-linha-num { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 13px; color: var(--text-2); }
+.tag-fila { display: block; font-size: 12px; opacity: .8; margin-bottom: 4px; }
