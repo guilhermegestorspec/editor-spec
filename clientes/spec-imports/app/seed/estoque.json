@@ -1,0 +1,483 @@
+{
+ "carros": [
+  {
+   "id": "r34-vspec-1999",
+   "marca": "Nissan",
+   "modelo": "Skyline GT-R",
+   "versao": "R34 V-Spec",
+   "ano": 1999,
+   "chassi": "BNR34",
+   "origem": "JP",
+   "preco": 165000,
+   "status": "disponivel",
+   "destaque": 1,
+   "motor": "RB26DETT 2.6 6 cil. biturbo",
+   "cv": 280,
+   "torque": "392 Nm",
+   "cambio": "Manual Getrag 6 marchas",
+   "tracao": "Integral ATTESA E-TS Pro",
+   "peso": "1.560 kg",
+   "zero100": "4,9 s",
+   "km": "68.400 km",
+   "cor": "Bayside Blue",
+   "corHex": "#1d4fd8",
+   "volante": "Direita (JDM)",
+   "leilao": "4.5 / B",
+   "destaques": [
+    "Cor Bayside Blue original de fábrica",
+    "Diferencial traseiro ativo (V-Spec)",
+    "Rodas BBS originais 18\"",
+    "Histórico de manutenção do Japão"
+   ],
+   "asa": true,
+   "fotos": [
+    {
+     "url": "/uploads/demo-r34-2.jpg",
+     "credito": "MrWalkr · CC BY-SA 4.0",
+     "creditoLink": "https://commons.wikimedia.org/wiki/File:2001_Nissan_Skyline_GT-R_V-Spec_II_R34.jpg"
+    },
+    {
+     "url": "/uploads/demo-r34-3.jpg",
+     "credito": "MrWalkr · CC BY-SA 4.0",
+     "creditoLink": "https://commons.wikimedia.org/wiki/File:1999_Nissan_Skyline_GT-R_V-Spec_BS_J26.jpg"
+    }
+   ],
+   "descricao": "R34 V-Spec em Bayside Blue, a cor mais procurada do modelo. Motor RB26DETT original, câmbio Getrag de 6 marchas e tração integral ATTESA E-TS Pro. Carro de colecionador, com histórico de manutenção no Japão."
+  },
+  {
+   "id": "supra-rz-1995",
+   "marca": "Toyota",
+   "modelo": "Supra",
+   "versao": "RZ Twin Turbo",
+   "ano": 1995,
+   "chassi": "JZA80",
+   "origem": "JP",
+   "preco": 98000,
+   "status": "disponivel",
+   "destaque": 2,
+   "motor": "2JZ-GTE 3.0 6 cil. biturbo",
+   "cv": 280,
+   "torque": "451 Nm",
+   "cambio": "Manual Getrag V160 6 marchas",
+   "tracao": "Traseira",
+   "peso": "1.510 kg",
+   "zero100": "4,6 s",
+   "km": "92.100 km",
+   "cor": "Prata metálico",
+   "corHex": "#9aa0a8",
+   "volante": "Direita (JDM)",
+   "leilao": "4 / B",
+   "destaques": [
+    "2JZ de bloco forte, muito procurado para preparação",
+    "Câmbio V160, o mais desejado da MK4",
+    "Teto targa",
+    "Elegível para importação ao Brasil (30+ anos)"
+   ],
+   "asa": true,
+   "fotos": [
+    {
+     "url": "/uploads/demo-supra-2.jpg",
+     "credito": "Tokumeigakarinoaoshima · CC0",
+     "creditoLink": "https://commons.wikimedia.org/wiki/File:Toyota_Supra_RZ_(JZA80)_front.JPG"
+    }
+   ],
+   "descricao": "Supra RZ com o lendário 2JZ-GTE biturbo e câmbio V160 de 6 marchas. Com mais de 30 anos de fabricação, pode ser vendido e importado tanto para o Paraguai quanto para o Brasil."
+  },
+  {
+   "id": "rx7-typers-1999",
+   "marca": "Mazda",
+   "modelo": "RX-7",
+   "versao": "Type RS",
+   "ano": 1999,
+   "chassi": "FD3S",
+   "origem": "JP",
+   "preco": 62000,
+   "status": "reservado",
+   "destaque": 4,
+   "motor": "13B-REW 1.3 birrotor biturbo",
+   "cv": 280,
+   "torque": "314 Nm",
+   "cambio": "Manual 5 marchas",
+   "tracao": "Traseira",
+   "peso": "1.280 kg",
+   "zero100": "5,0 s",
+   "km": "74.800 km",
+   "cor": "Vintage Red",
+   "corHex": "#c4121a",
+   "volante": "Direita (JDM)",
+   "leilao": "4 / B",
+   "destaques": [
+    "Série 6, a última e mais refinada",
+    "Motor rotativo com compressão medida",
+    "Suspensão Bilstein de fábrica",
+    "Interior preservado"
+   ],
+   "asa": true,
+   "fotos": [
+    {
+     "url": "/uploads/demo-rx7-2.jpg",
+     "credito": "Ethan Llamas · CC BY-SA 4.0",
+     "creditoLink": "https://commons.wikimedia.org/wiki/File:Mazda_RX-7_FD3S,_front_right,_05-05-2024.jpg"
+    },
+    {
+     "url": "/uploads/demo-rx7-3.jpg",
+     "credito": "Ethan Llamas · CC BY-SA 4.0",
+     "creditoLink": "https://commons.wikimedia.org/wiki/File:Mazda_RX-7_FD3S,_rear_right,_05-05-2024.jpg"
+    }
+   ],
+   "descricao": "RX-7 Type RS da série 6, a última e mais refinada do FD3S. Motor rotativo 13B-REW biturbo com compressão medida antes do embarque."
+  },
+  {
+   "id": "nsx-na1-1991",
+   "marca": "Honda",
+   "modelo": "NSX",
+   "versao": "NA1",
+   "ano": 1991,
+   "chassi": "NA1",
+   "origem": "JP",
+   "preco": 115000,
+   "status": "disponivel",
+   "destaque": 3,
+   "motor": "C30A 3.0 V6 VTEC",
+   "cv": 280,
+   "torque": "294 Nm",
+   "cambio": "Manual 5 marchas",
+   "tracao": "Traseira, motor central",
+   "peso": "1.350 kg",
+   "zero100": "5,7 s",
+   "km": "81.300 km",
+   "cor": "Formula Red",
+   "corHex": "#d0101a",
+   "volante": "Direita (JDM)",
+   "leilao": "4.5 / A",
+   "destaques": [
+    "Carroceria em alumínio",
+    "Ajuste de chassi com participação de Ayrton Senna",
+    "Faróis escamoteáveis",
+    "Elegível para importação ao Brasil (30+ anos)"
+   ],
+   "fotos": [
+    {
+     "url": "/uploads/demo-nsx-3.jpg",
+     "credito": "先従隗始 · CC0",
+     "creditoLink": "https://commons.wikimedia.org/wiki/File:Honda_E-NA1_NSX_(24041411095).jpg"
+    },
+    {
+     "url": "/uploads/demo-nsx-1.jpg",
+     "credito": "先従隗始 · CC0",
+     "creditoLink": "https://commons.wikimedia.org/wiki/File:Honda_E-NA1_NSX_(24052611224).jpg"
+    },
+    {
+     "url": "/uploads/demo-nsx-2.jpg",
+     "credito": "先従隗始 · CC0",
+     "creditoLink": "https://commons.wikimedia.org/wiki/File:Honda_E-NA1_NSX_(24052611222).jpg"
+    }
+   ],
+   "descricao": "NSX NA1 com carroceria em alumínio e V6 VTEC de 3.0 litros. Clássico com mais de 30 anos, elegível para venda e importação ao Brasil."
+  },
+  {
+   "id": "r32-gtr-1993",
+   "marca": "Nissan",
+   "modelo": "Skyline GT-R",
+   "versao": "R32",
+   "ano": 1993,
+   "chassi": "BNR32",
+   "origem": "JP",
+   "preco": 58000,
+   "status": "disponivel",
+   "destaque": 5,
+   "motor": "RB26DETT 2.6 6 cil. biturbo",
+   "cv": 280,
+   "torque": "353 Nm",
+   "cambio": "Manual 5 marchas",
+   "tracao": "Integral ATTESA E-TS",
+   "peso": "1.430 kg",
+   "zero100": "5,2 s",
+   "km": "118.000 km",
+   "cor": "Crystal White",
+   "corHex": "#f0f0f0",
+   "volante": "Direita (JDM)",
+   "leilao": "4 / B",
+   "destaques": [
+    "O \"Godzilla\" original",
+    "Turbinas revisadas",
+    "Elegível para importação ao Brasil (30+ anos)",
+    "Escapamento HKS"
+   ],
+   "asa": true,
+   "fotos": [
+    {
+     "url": "/uploads/demo-r32-1.jpg",
+     "credito": "Damian B Oh · CC BY-SA 4.0",
+     "creditoLink": "https://commons.wikimedia.org/wiki/File:Nissan_Skyline_R32_GT-R_E-BNR32_Crystal_White_(1).jpg"
+    },
+    {
+     "url": "/uploads/demo-r32-2.jpg",
+     "credito": "Damian B Oh · CC BY-SA 4.0",
+     "creditoLink": "https://commons.wikimedia.org/wiki/File:Nissan_Skyline_R32_GT-R_E-BNR32_Crystal_White_(2).jpg"
+    }
+   ],
+   "descricao": "O GT-R R32 que deu origem ao apelido Godzilla. RB26DETT, tração integral e mais de 30 anos de fabricação: pode ir para o Paraguai ou para o Brasil."
+  },
+  {
+   "id": "evo6-tme-2000",
+   "marca": "Mitsubishi",
+   "modelo": "Lancer Evolution",
+   "versao": "VI Tommi Mäkinen",
+   "ano": 2000,
+   "chassi": "CP9A",
+   "origem": "JP",
+   "preco": 55000,
+   "status": "transito",
+   "destaque": 6,
+   "motor": "4G63T 2.0 turbo",
+   "cv": 280,
+   "torque": "373 Nm",
+   "cambio": "Manual 5 marchas",
+   "tracao": "Integral com AYC",
+   "peso": "1.360 kg",
+   "zero100": "4,8 s",
+   "km": "63.900 km",
+   "cor": "Scotia White",
+   "corHex": "#f2f2f2",
+   "volante": "Direita (JDM)",
+   "leilao": "4.5 / B",
+   "destaques": [
+    "Edição homenagem ao tetracampeão do WRC",
+    "Turbina de titânio-alumínio",
+    "Rodas Enkei 17\" brancas",
+    "Chega em poucas semanas"
+   ],
+   "asa": true,
+   "fotos": [
+    {
+     "url": "/uploads/demo-evo6-1.jpg",
+     "credito": "TTTNIS · CC0",
+     "creditoLink": "https://commons.wikimedia.org/wiki/File:2000_Mitsubishi_Lancer_RS_Evolution_VI_Tommi_Makinen_Edition.jpg"
+    }
+   ],
+   "descricao": "Lancer Evolution VI Tommi Mäkinen Edition, homenagem ao tetracampeão do WRC. Turbina de titânio-alumínio e rodas Enkei de 17 polegadas."
+  },
+  {
+   "id": "s15-specr-2001",
+   "marca": "Nissan",
+   "modelo": "Silvia",
+   "versao": "Spec-R",
+   "ano": 2001,
+   "chassi": "S15",
+   "origem": "JP",
+   "preco": 45000,
+   "status": "disponivel",
+   "destaque": 8,
+   "motor": "SR20DET 2.0 turbo",
+   "cv": 250,
+   "torque": "275 Nm",
+   "cambio": "Manual 6 marchas",
+   "tracao": "Traseira",
+   "peso": "1.250 kg",
+   "zero100": "5,5 s",
+   "km": "97.600 km",
+   "cor": "Sparkling Silver",
+   "corHex": "#b8bec8",
+   "volante": "Direita (JDM)",
+   "leilao": "4 / C",
+   "destaques": [
+    "Ícone do drift",
+    "Diferencial helicoidal de fábrica",
+    "Bancos originais em bom estado"
+   ],
+   "fotos": [
+    {
+     "url": "/uploads/demo-s15-1.jpg",
+     "credito": "Tokumeigakarinoaoshima · CC BY-SA 4.0",
+     "creditoLink": "https://commons.wikimedia.org/wiki/File:Nissan_Silvia_Spec_R_b_package_(GF-S15).jpg"
+    }
+   ],
+   "descricao": "Silvia S15 Spec-R com SR20DET e câmbio de 6 marchas. Um dos carros mais desejados da cultura drift."
+  },
+  {
+   "id": "ek9-typer-1998",
+   "marca": "Honda",
+   "modelo": "Civic",
+   "versao": "Type R",
+   "ano": 1998,
+   "chassi": "EK9",
+   "origem": "JP",
+   "preco": 38000,
+   "status": "disponivel",
+   "destaque": 9,
+   "motor": "B16B 1.6 VTEC",
+   "cv": 185,
+   "torque": "160 Nm",
+   "cambio": "Manual 5 marchas",
+   "tracao": "Dianteira, LSD",
+   "peso": "1.070 kg",
+   "zero100": "6,7 s",
+   "km": "88.200 km",
+   "cor": "Sunlight Yellow",
+   "corHex": "#f2c400",
+   "volante": "Direita (JDM)",
+   "leilao": "4 / B",
+   "destaques": [
+    "Primeiro Civic Type R da história",
+    "Corta giro a 8.400 rpm",
+    "Bancos Recaro vermelhos originais"
+   ],
+   "fotos": [
+    {
+     "url": "/uploads/demo-ek9-1.jpg",
+     "credito": "Tokumeigakarinoaoshima · CC0",
+     "creditoLink": "https://commons.wikimedia.org/wiki/File:Honda_CIVIC_TYPE_R_(EK9)_right.JPG"
+    },
+    {
+     "url": "/uploads/demo-ek9-2.jpg",
+     "credito": "Tokumeigakarinoaoshima · CC0",
+     "creditoLink": "https://commons.wikimedia.org/wiki/File:Honda_CIVIC_TYPE_R_(EK9)_right_(2).JPG"
+    }
+   ],
+   "descricao": "O primeiro Civic Type R. Motor B16B de 1.6 litro com corte a 8.400 rpm e diferencial de deslizamento limitado."
+  },
+  {
+   "id": "z32-twinturbo-1990",
+   "marca": "Nissan",
+   "modelo": "Fairlady Z",
+   "versao": "300ZX Twin Turbo",
+   "ano": 1990,
+   "chassi": "Z32",
+   "origem": "JP",
+   "preco": 34000,
+   "status": "disponivel",
+   "destaque": 7,
+   "motor": "VG30DETT 3.0 V6 biturbo",
+   "cv": 280,
+   "torque": "388 Nm",
+   "cambio": "Manual 5 marchas",
+   "tracao": "Traseira",
+   "peso": "1.570 kg",
+   "zero100": "5,6 s",
+   "km": "102.500 km",
+   "cor": "Pearl White",
+   "corHex": "#eeeeee",
+   "volante": "Direita (JDM)",
+   "leilao": "4 / B",
+   "destaques": [
+    "Primeiro carro japonês com 280 cv de fábrica",
+    "Teto T-top",
+    "Elegível para importação ao Brasil (30+ anos)"
+   ],
+   "fotos": [
+    {
+     "url": "/uploads/demo-z32-1.jpg",
+     "credito": "TTTNIS · CC0",
+     "creditoLink": "https://commons.wikimedia.org/wiki/File:1998_Nissan_Fairlady_Z_2by2_300ZX_Twin_Turbo_T-Bar_Roof.jpg"
+    },
+    {
+     "url": "/uploads/demo-z32-2.jpg",
+     "credito": "Charles from Port Chester, New York · CC BY 2.0",
+     "creditoLink": "https://commons.wikimedia.org/wiki/File:Nissan_300ZX_Turbo_(1990)_(53686112515).jpg"
+    }
+   ],
+   "descricao": "Fairlady Z 300ZX Twin Turbo, primeiro carro japonês com 280 cv de fábrica. Teto T-top. Elegível para venda e importação ao Brasil."
+  },
+  {
+   "id": "ae86-trueno-1986",
+   "marca": "Toyota",
+   "modelo": "Sprinter Trueno",
+   "versao": "GT-Apex",
+   "ano": 1986,
+   "chassi": "AE86",
+   "origem": "JP",
+   "preco": 32000,
+   "status": "reservado",
+   "destaque": 10,
+   "motor": "4A-GE 1.6 16V",
+   "cv": 130,
+   "torque": "149 Nm",
+   "cambio": "Manual 5 marchas",
+   "tracao": "Traseira",
+   "peso": "940 kg",
+   "zero100": "8,5 s",
+   "km": "141.000 km",
+   "cor": "Panda (branco e preto)",
+   "corHex": "#eeeeee",
+   "volante": "Direita (JDM)",
+   "leilao": "3.5 / B",
+   "destaques": [
+    "O \"Hachiroku\" das montanhas",
+    "Faróis escamoteáveis",
+    "Elegível para importação ao Brasil (30+ anos)"
+   ],
+   "fotos": [
+    {
+     "url": "/uploads/demo-ae86-1.jpg",
+     "credito": "先従隗始 · CC0",
+     "creditoLink": "https://commons.wikimedia.org/wiki/File:Toyota_E-AE86_Sprinter_Trueno_GT_APEX_(22010314081).jpg"
+    },
+    {
+     "url": "/uploads/demo-ae86-2.jpg",
+     "credito": "SprinterTrueno1985 · CC0",
+     "creditoLink": "https://commons.wikimedia.org/wiki/File:Toyota_Sprinter_Trueno_AE86_2_door.jpg"
+    },
+    {
+     "url": "/uploads/demo-ae86-3.jpg",
+     "credito": "Tokumeigakarinoaoshima · CC0",
+     "creditoLink": "https://commons.wikimedia.org/wiki/File:Toyota_SPRINTER_TRUENO_3door_(AE86)_front.JPG"
+    }
+   ],
+   "descricao": "Sprinter Trueno GT-Apex AE86 na clássica pintura panda. Motor 4A-GE de 16 válvulas e tração traseira. Elegível para venda e importação ao Brasil."
+  }
+ ],
+ "videos": [
+  {
+   "id": "v1",
+   "titulo": "R34 V-Spec: partida a frio e ronco",
+   "carro": "r34-vspec-1999",
+   "tipo": "Ronco",
+   "duracao": "0:48",
+   "url": "",
+   "capa": "",
+   "ordem": 1
+  },
+  {
+   "id": "v2",
+   "titulo": "Supra MK4 walkaround completo",
+   "carro": "supra-rz-1995",
+   "tipo": "Walkaround",
+   "duracao": "1:12",
+   "url": "",
+   "capa": "",
+   "ordem": 2
+  },
+  {
+   "id": "v3",
+   "titulo": "NSX na estrada: test drive",
+   "carro": "nsx-na1-1991",
+   "tipo": "Test drive",
+   "duracao": "0:59",
+   "url": "",
+   "capa": "",
+   "ordem": 3
+  },
+  {
+   "id": "v4",
+   "titulo": "AE86 Trueno: de lado na serra",
+   "carro": "ae86-trueno-1986",
+   "tipo": "Drift",
+   "duracao": "0:35",
+   "url": "",
+   "capa": "",
+   "ordem": 4
+  },
+  {
+   "id": "v5",
+   "titulo": "RX-7 FD: entrega ao cliente",
+   "carro": "rx7-typers-1999",
+   "tipo": "Entrega",
+   "duracao": "0:41",
+   "url": "",
+   "capa": "",
+   "ordem": 5
+  }
+ ],
+ "config": {}
+}

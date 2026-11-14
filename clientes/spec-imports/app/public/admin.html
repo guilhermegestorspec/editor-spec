@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Painel Spec Imports</title>
+<link rel="icon" type="image/png" href="/simbolo.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira:ital,wdth,wght@0,100..125,500..900;1,100..125,500..900&family=Montserrat:wght@400;500;600;700&display=swap">
+<style>
+:root{--black:#000;--surface:#0a0c0a;--surface-2:#121512;--line:#1f2520;--line-2:#2d352e;--fg:#f4f6f4;--muted:#9aa39b;--soft:#c9d0ca;--green:#00F028;--red:#ff4d4d;--warn:#ffb020;
+--display:"Saira","Eurostile Extended","Arial Black",sans-serif;--body:"Montserrat",system-ui,sans-serif;color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--black);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.5}
+a{color:inherit}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:max(16px,env(safe-area-inset-left,0px))}
+h1,h2,h3{font-family:var(--display);font-stretch:125%;font-style:italic;text-transform:uppercase;margin:0;line-height:1.1}
+.btn{display:inline-flex;align-items:center;gap:8px;justify-content:center;border:0;cursor:pointer;padding:11px 18px;font-weight:700;font-size:.88rem;text-decoration:none;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line-2)}
+.btn:hover{box-shadow:inset 0 0 0 1px var(--muted)}
+.btn.pri{background:var(--green);color:#000;box-shadow:none}
+.btn.pri:hover{background:#3dff5c}
+.btn.danger{color:var(--red)}
+.btn.sm{padding:6px 10px;font-size:.78rem}
+.btn:disabled{opacity:.5;cursor:default}
+input,select,textarea{width:100%;background:var(--surface);border:1px solid var(--line-2);padding:10px 12px;border-radius:0}
+input:focus,select:focus,textarea:focus{border-color:var(--green);outline:none}
+textarea{resize:vertical;min-height:90px}
+label{display:grid;gap:5px;font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+label input,label select,label textarea{text-transform:none;letter-spacing:0;font-size:.95rem;font-weight:500;color:var(--fg)}
+.hint{font-size:.78rem;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:400}
+
+/* login */
+#login{min-height:100vh;display:grid;place-items:center;padding:20px}
+#login form{width:min(400px,100%);display:grid;gap:16px;background:var(--surface);border:1px solid var(--line);padding:30px}
+#login img{height:34px;width:auto;margin-bottom:6px}
+.err{color:var(--red);font-size:.88rem;min-height:1.2em;margin:0}
+
+/* topo */
+header{position:sticky;top:0;z-index:20;background:rgba(0,0,0,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+header .wrap{display:flex;align-items:center;gap:16px;height:64px}
+header img{height:26px;width:auto}
+header .tag{font-size:.7rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--green)}
+header .sp{flex:1}
+nav.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:24px 0}
+nav.tabs button{background:none;border:0;padding:12px 16px;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+nav.tabs button[aria-selected="true"]{color:var(--fg);border-color:var(--green)}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:16px}
+.bar input{max-width:280px}
+
+/* lista */
+.list{display:grid;gap:8px}
+.row{display:grid;grid-template-columns:96px 1fr auto auto;gap:14px;align-items:center;background:var(--surface);border:1px solid var(--line);padding:10px}
+.row img,.row .ph{width:96px;height:60px;object-fit:cover;background:var(--surface-2);display:grid;place-items:center;font-size:.65rem;color:var(--muted)}
+.row b{display:block;font-family:var(--display);font-stretch:125%;font-style:italic;text-transform:uppercase;font-size:.95rem}
+.row .meta{font-size:.8rem;color:var(--muted)}
+.row .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.row select{width:auto;padding:6px 8px;font-size:.8rem}
+@media (max-width:700px){.row{grid-template-columns:72px 1fr}.row img,.row .ph{width:72px;height:46px}.row select,.row .acts{grid-column:1/-1}.row .acts{justify-content:flex-start}}
+.empty{padding:40px;text-align:center;color:var(--muted);border:1px dashed var(--line-2)}
+
+/* editor */
+.editor{background:var(--surface);border:1px solid var(--line);padding:22px;display:grid;gap:22px;margin-bottom:30px}
+.editor h2{font-size:1.2rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,200px),1fr));gap:14px}
+.grid .wide{grid-column:1/-1}
+fieldset{border:1px solid var(--line);padding:16px;margin:0;display:grid;gap:14px}
+legend{padding:0 8px;font-weight:700;font-size:.82rem;text-transform:uppercase;letter-spacing:.08em;color:var(--green)}
+.drop{border:1.5px dashed var(--line-2);padding:20px;text-align:center;color:var(--muted);cursor:pointer;transition:border-color .2s}
+.drop.on,.drop:hover{border-color:var(--green);color:var(--fg)}
+.fotos{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.foto{background:var(--black);border:1px solid var(--line-2);display:grid;gap:6px;padding:6px}
+.foto img{width:100%;aspect-ratio:16/10;object-fit:cover}
+.foto .fa{display:flex;gap:4px}
+.foto .fa .btn{flex:1;padding:5px 0}
+.foto input{padding:5px 7px;font-size:.75rem}
+.foto.capa{border-color:var(--green)}
+.foto .badge{font-size:.62rem;font-weight:700;letter-spacing:.1em;color:var(--green)}
+.prog{height:4px;background:var(--line);overflow:hidden}
+.prog i{display:block;height:100%;background:var(--green);width:0;transition:width .2s}
+.check{display:flex;gap:10px;align-items:center;font-size:.88rem;font-weight:500;text-transform:none;letter-spacing:0;color:var(--fg)}
+.check input{width:auto}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--green);color:#000;font-weight:700;padding:12px 20px;z-index:99}
+.toast.erro{background:var(--red);color:#fff}
+.conv{font-size:.8rem;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--line);padding:22px;display:grid;gap:16px;max-width:720px}
+</style>
+</head>
+<body>
+
+<section id="login" hidden>
+  <form id="f-login">
+    <img src="/logo.png" alt="Spec Imports">
+    <h1 style="font-size:1.2rem">Painel do administrador</h1>
+    <label for="l-user">Usuário<input id="l-user" autocomplete="username" required></label>
+    <label for="l-pass">Senha<input id="l-pass" type="password" autocomplete="current-password" required></label>
+    <button class="btn pri" type="submit">Entrar</button>
+    <p class="err" id="l-err" role="alert"></p>
+    <a href="/" style="font-size:.85rem;color:var(--muted)">← Voltar ao site</a>
+  </form>
+</section>
+
+<div id="app" hidden>
+  <header><div class="wrap">
+    <img src="/logo.png" alt="Spec Imports"><span class="tag">Painel</span>
+    <span class="sp"></span>
+    <a class="btn sm" href="/" target="_blank" rel="noopener">Ver site</a>
+    <button class="btn sm" id="sair">Sair</button>
+  </div></header>
+  <main class="wrap">
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="carros" aria-selected="true">Carros</button>
+      <button role="tab" data-tab="videos" aria-selected="false">Vídeos</button>
+      <button role="tab" data-tab="config" aria-selected="false">WhatsApp e cotação</button>
+    </nav>
+
+    <!-- CARROS -->
+    <section data-pane="carros">
+      <div id="car-editor"></div>
+      <div class="bar">
+        <input id="car-busca" type="search" placeholder="Buscar no estoque…" aria-label="Buscar no estoque">
+        <button class="btn pri" id="car-novo">+ Adicionar carro</button>
+      </div>
+      <div class="list" id="car-list"></div>
+    </section>
+
+    <!-- VÍDEOS -->
+    <section data-pane="videos" hidden>
+      <div id="vid-editor"></div>
+      <div class="bar">
+        <span class="conv">Vídeos aparecem na seção "Ronco, walkaround e entrega" do site, em formato vertical (Reels).</span>
+        <button class="btn pri" id="vid-novo">+ Adicionar vídeo</button>
+      </div>
+      <div class="list" id="vid-list"></div>
+    </section>
+
+    <!-- CONFIG -->
+    <section data-pane="config" hidden>
+      <form class="card" id="f-config">
+        <h2 style="font-size:1.1rem">WhatsApp</h2>
+        <label for="c-wa">Número com DDI e DDD, só números
+          <input id="c-wa" inputmode="numeric" placeholder="Ex.: 595981123456 ou 5545999998888">
+          <span class="hint">Todos os botões do site abrem conversa com este número, já com o modelo do carro na mensagem.</span>
+        </label>
+        <h2 style="font-size:1.1rem;margin-top:10px">Cotação</h2>
+        <label class="check" for="c-auto"><input type="checkbox" id="c-auto"> Atualizar sozinho pela Mundial Cambios (a cada hora, cotação de venda)</label>
+        <div class="grid">
+          <label for="c-brl">US$ 1 em reais<input id="c-brl" inputmode="decimal"></label>
+          <label for="c-pyg">US$ 1 em guaranis<input id="c-pyg" inputmode="numeric"></label>
+        </div>
+        <p class="conv" id="c-info"></p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn pri" type="submit">Salvar</button>
+          <button class="btn" type="button" id="c-atualizar">Buscar cotação agora</button>
+        </div>
+      </form>
+    </section>
+  </main>
+</div>
+
+<script>
+const $ = (s, r=document) => r.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+const STATUS = {disponivel:"Disponível", reservado:"Reservado", transito:"Em trânsito", vendido:"Vendido"};
+let DATA = {config:{}, carros:[], videos:[]};
+
+function toast(msg, erro){
+  const t = document.createElement("div"); t.className = "toast" + (erro ? " erro" : ""); t.textContent = msg; t.setAttribute("role","status");
+  document.body.appendChild(t); setTimeout(() => t.remove(), 3200);
+}
+async function api(method, url, body){
+  const r = await fetch(url, {method, headers:{"Content-Type":"application/json","x-spec":"1"}, body: body ? JSON.stringify(body) : undefined});
+  const d = await r.json().catch(() => ({}));
+  if (r.status === 401) { mostrarLogin(); throw new Error(d.erro || "Sessão expirada."); }
+  if (!r.ok) throw new Error(d.erro || "Não deu certo. Tente de novo.");
+  return d;
+}
+function enviarArquivos(files, onProg){
+  return new Promise((ok, falha) => {
+    const fd = new FormData(); [...files].forEach(f => fd.append("arquivos", f));
+    const x = new XMLHttpRequest(); x.open("POST", "/api/admin/upload"); x.setRequestHeader("x-spec","1");
+    x.upload.onprogress = e => e.lengthComputable && onProg && onProg(e.loaded / e.total);
+    x.onload = () => { let d = {}; try { d = JSON.parse(x.responseText); } catch {} x.status < 300 ? ok(d.arquivos) : falha(new Error(d.erro || "Falha no envio.")); };
+    x.onerror = () => falha(new Error("Sem conexão.")); x.send(fd);
+  });
+}
+async function carregar(){
+  DATA = await (await fetch("/api/site", {cache:"no-store"})).json();
+  listaCarros(); listaVideos(); preencherConfig();
+}
+
+/* ---------- login ---------- */
+function mostrarLogin(){ $("#app").hidden = true; $("#login").hidden = false; $("#l-user").focus(); }
+async function entrar(){ $("#login").hidden = true; $("#app").hidden = false; await carregar(); }
+$("#f-login").addEventListener("submit", async e => {
+  e.preventDefault(); $("#l-err").textContent = "";
+  const r = await fetch("/api/login", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({usuario:$("#l-user").value, senha:$("#l-pass").value})});
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { $("#l-err").textContent = d.erro || "Não foi possível entrar."; return; }
+  $("#l-pass").value = ""; entrar();
+});
+$("#sair").addEventListener("click", async () => { await fetch("/api/logout", {method:"POST"}); mostrarLogin(); });
+
+/* ---------- abas ---------- */
+document.querySelectorAll("[data-tab]").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("[data-tab]").forEach(x => x.setAttribute("aria-selected", x === b));
+  document.querySelectorAll("[data-pane]").forEach(p => p.hidden = p.dataset.pane !== b.dataset.tab);
+}));
+
+/* ---------- carros ---------- */
+const fUSD = v => "US$ " + Number(v||0).toLocaleString("pt-BR");
+function listaCarros(){
+  const q = $("#car-busca").value.trim().toLowerCase();
+  const L = DATA.carros.filter(c => !q || `${c.marca} ${c.modelo} ${c.versao} ${c.chassi} ${c.ano}`.toLowerCase().includes(q))
+    .sort((a,b) => (a.destaque||99)-(b.destaque||99));
+  $("#car-list").innerHTML = L.length ? L.map(c => `<div class="row">
+      ${c.fotos && c.fotos[0] ? `<img src="${esc(c.fotos[0].url)}" alt="" loading="lazy">` : `<span class="ph">sem foto</span>`}
+      <div><b>${esc(c.marca)} ${esc(c.modelo)} ${esc(c.versao)}</b><span class="meta">${c.ano} · ${esc(c.chassi)} · ${fUSD(c.preco)} · ${(c.fotos||[]).length} foto(s) · posição ${c.destaque||"-"}</span></div>
+      <select data-status="${esc(c.id)}" aria-label="Situação">${Object.entries(STATUS).map(([k,v]) => `<option value="${k}" ${c.status===k?"selected":""}>${v}</option>`).join("")}</select>
+      <div class="acts"><button class="btn sm" data-edit="${esc(c.id)}">Editar</button><a class="btn sm" href="/#carro-${esc(c.id)}" target="_blank" rel="noopener">Ver</a><button class="btn sm danger" data-del="${esc(c.id)}">Excluir</button></div>
+    </div>`).join("") : `<div class="empty">Nenhum carro${q ? " encontrado" : " no estoque ainda. Clique em “Adicionar carro”"}.</div>`;
+}
+$("#car-busca").addEventListener("input", listaCarros);
+$("#car-list").addEventListener("change", async e => {
+  const id = e.target.dataset.status; if (!id) return;
+  const c = DATA.carros.find(x => x.id === id);
+  try { const n = await api("PUT", "/api/admin/carros/" + encodeURIComponent(id), {...c, status: e.target.value}); Object.assign(c, n); toast("Situação atualizada"); listaCarros(); }
+  catch (err) { toast(err.message, true); }
+});
+$("#car-list").addEventListener("click", async e => {
+  const ed = e.target.closest("[data-edit]"), del = e.target.closest("[data-del]");
+  if (ed) editorCarro(DATA.carros.find(x => x.id === ed.dataset.edit));
+  if (del) {
+    const c = DATA.carros.find(x => x.id === del.dataset.del);
+    if (!confirm(`Excluir ${c.marca} ${c.modelo} ${c.versao} do estoque? Isso não pode ser desfeito.`)) return;
+    try { await api("DELETE", "/api/admin/carros/" + encodeURIComponent(c.id)); DATA.carros = DATA.carros.filter(x => x !== c); listaCarros(); toast("Carro excluído"); }
+    catch (err) { toast(err.message, true); }
+  }
+});
+$("#car-novo").addEventListener("click", () => editorCarro(null));
+
+const CAMPOS = [
+  ["Identificação", [["marca","Marca","Ex.: Nissan"],["modelo","Modelo","Ex.: Skyline GT-R"],["versao","Versão","Ex.: R34 V-Spec"],["ano","Ano de fabricação","Ex.: 1999","num"],["chassi","Código do chassi","Ex.: BNR34"],["cor","Cor","Ex.: Bayside Blue"]]],
+  ["Preço e situação", [["preco","Preço em dólar (US$)","Ex.: 165000","num"],["status","Situação"],["destaque","Posição no site (1 = primeiro)","1","num"]]],
+  ["Ficha técnica", [["motor","Motor","Ex.: RB26DETT 2.6 biturbo"],["cv","Potência (cv)","280","num"],["torque","Torque","Ex.: 392 Nm"],["zero100","0 a 100 km/h","Ex.: 4,9 s"],["cambio","Câmbio","Ex.: Manual 6 marchas"],["tracao","Tração","Ex.: Integral"],["peso","Peso","Ex.: 1.560 kg"],["km","Quilometragem","Ex.: 68.400 km"],["volante","Volante","Direita (JDM)"],["leilao","Nota de leilão","Ex.: 4.5 / B"]]]
+];
+let FOTOS = [];
+function editorCarro(c){
+  const novo = !c; c = c || {status:"disponivel", volante:"Direita (JDM)", corHex:"#888888", fotos:[], destaques:[]};
+  FOTOS = (c.fotos || []).map(f => ({...f}));
+  const campo = ([k, rot, ph, tipo]) => k === "status"
+    ? `<label for="e-status">${rot}<select id="e-status">${Object.entries(STATUS).map(([v,t]) => `<option value="${v}" ${c.status===v?"selected":""}>${t}</option>`).join("")}</select></label>`
+    : `<label for="e-${k}">${rot}<input id="e-${k}" ${tipo==="num"?'inputmode="decimal"':""} placeholder="${esc(ph||"")}" value="${esc(c[k] ?? "")}"></label>`;
+  $("#car-editor").innerHTML = `<form class="editor" id="f-car" novalidate>
+    <div class="bar" style="margin:0"><h2>${novo ? "Novo carro" : "Editar " + esc(c.modelo + " " + c.versao)}</h2><button type="button" class="btn sm" id="e-fechar">Fechar</button></div>
+    ${CAMPOS.map(([leg, fs]) => `<fieldset><legend>${leg}</legend><div class="grid">${fs.map(campo).join("")}
+      ${leg==="Identificação" ? `<label for="e-corHex">Cor do brilho (sem foto)<input id="e-corHex" type="color" value="${esc(c.corHex||"#888888")}" style="height:44px;padding:4px"></label>` : ""}
+      ${leg==="Preço e situação" ? `<p class="conv wide" id="e-conv"></p>` : ""}
+    </div></fieldset>`).join("")}
+    <fieldset><legend>Fotos</legend>
+      <div class="drop" id="e-drop" tabindex="0" role="button">Arraste as fotos aqui ou <b>clique para escolher</b><br><span class="hint">JPG, PNG ou WEBP. A primeira é a capa do anúncio.</span></div>
+      <input type="file" id="e-file" accept="image/*" multiple hidden>
+      <div class="prog" hidden id="e-prog"><i></i></div>
+      <div class="fotos" id="e-fotos"></div>
+    </fieldset>
+    <fieldset><legend>Descrição</legend>
+      <label for="e-descricao">Sobre este carro<textarea id="e-descricao" rows="5" placeholder="Histórico, estado de conservação, revisões, opcionais…">${esc(c.descricao||"")}</textarea></label>
+      <label for="e-destaques">Destaques (um por linha)<textarea id="e-destaques" rows="4" placeholder="Rodas BBS originais&#10;Histórico de manutenção do Japão">${esc((c.destaques||[]).join("\n"))}</textarea></label>
+      <label class="check" for="e-asa"><input type="checkbox" id="e-asa" ${c.asa?"checked":""}> Tem aerofólio (só muda a ilustração quando não há foto)</label>
+    </fieldset>
+    <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn pri" type="submit">${novo ? "Adicionar ao estoque" : "Salvar alterações"}</button><button type="button" class="btn" id="e-cancelar">Cancelar</button></div>
+  </form>`;
+  const fechar = () => { $("#car-editor").innerHTML = ""; };
+  $("#e-fechar").onclick = fechar; $("#e-cancelar").onclick = fechar;
+  const conv = () => { const p = Number($("#e-preco").value.replace(/\D/g,"")) || 0; const cf = DATA.config;
+    $("#e-conv").textContent = p ? `No site: ≈ R$ ${Math.round(p*cf.brl).toLocaleString("pt-BR")} · ≈ ₲ ${Math.round(p*cf.pyg).toLocaleString("es-PY")}` : ""; };
+  $("#e-preco").addEventListener("input", conv); conv();
+  desenharFotos();
+  const drop = $("#e-drop"), file = $("#e-file");
+  drop.onclick = () => file.click(); drop.onkeydown = e => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), file.click());
+  drop.ondragover = e => { e.preventDefault(); drop.classList.add("on"); };
+  drop.ondragleave = () => drop.classList.remove("on");
+  drop.ondrop = e => { e.preventDefault(); drop.classList.remove("on"); subirFotos(e.dataTransfer.files); };
+  file.onchange = () => { subirFotos(file.files); file.value = ""; };
+  $("#f-car").addEventListener("submit", async e => {
+    e.preventDefault();
+    const v = k => ($("#e-" + k) || {}).value;
+    const body = {}; CAMPOS.forEach(([, fs]) => fs.forEach(([k]) => body[k] = v(k)));
+    Object.assign(body, {corHex: v("corHex"), descricao: v("descricao"), destaques: v("destaques"), asa: $("#e-asa").checked, fotos: FOTOS});
+    try {
+      const n = novo ? await api("POST", "/api/admin/carros", body) : await api("PUT", "/api/admin/carros/" + encodeURIComponent(c.id), body);
+      if (novo) DATA.carros.push(n); else Object.assign(DATA.carros.find(x => x.id === c.id), n);
+      listaCarros(); fechar(); toast(novo ? "Carro adicionado ao site" : "Alterações salvas");
+    } catch (err) { toast(err.message, true); }
+  });
+  $("#f-car").scrollIntoView({behavior:"smooth"}); $("#e-marca").focus({preventScroll:true});
+}
+function desenharFotos(){
+  $("#e-fotos").innerHTML = FOTOS.map((f, i) => `<div class="foto ${i===0?"capa":""}">
+    <img src="${esc(f.url)}" alt="">
+    ${i===0 ? `<span class="badge">CAPA</span>` : ""}
+    <input data-cred="${i}" placeholder="Crédito da foto (opcional)" value="${esc(f.credito||"")}" aria-label="Crédito da foto ${i+1}">
+    <div class="fa">
+      <button type="button" class="btn sm" data-mv="${i}:-1" ${i===0?"disabled":""} aria-label="Mover para a esquerda">◀</button>
+      <button type="button" class="btn sm" data-capa="${i}" ${i===0?"disabled":""}>Capa</button>
+      <button type="button" class="btn sm" data-mv="${i}:1" ${i===FOTOS.length-1?"disabled":""} aria-label="Mover para a direita">▶</button>
+      <button type="button" class="btn sm danger" data-rm="${i}" aria-label="Remover foto">✕</button>
+    </div></div>`).join("");
+  $("#e-fotos").onclick = e => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.rm) FOTOS.splice(+b.dataset.rm, 1);
+    if (b.dataset.capa) FOTOS.unshift(FOTOS.splice(+b.dataset.capa, 1)[0]);
+    if (b.dataset.mv) { const [i, d] = b.dataset.mv.split(":").map(Number); [FOTOS[i], FOTOS[i+d]] = [FOTOS[i+d], FOTOS[i]]; }
+    desenharFotos();
+  };
+  $("#e-fotos").oninput = e => { const i = e.target.dataset.cred; if (i != null) { FOTOS[+i].credito = e.target.value; FOTOS[+i].creditoLink = FOTOS[+i].creditoLink || ""; } };
+}
+async function subirFotos(files){
+  if (!files || !files.length) return;
+  const p = $("#e-prog"); p.hidden = false;
+  try {
+    const arq = await enviarArquivos(files, x => p.firstElementChild.style.width = (x*100) + "%");
+    arq.filter(a => a.tipo.startsWith("image/")).forEach(a => FOTOS.push({url: a.url, credito: "", creditoLink: ""}));
+    desenharFotos(); toast(`${arq.length} foto(s) enviada(s). Salve o carro para publicar.`);
+  } catch (err) { toast(err.message, true); }
+  p.hidden = true; p.firstElementChild.style.width = "0";
+}
+
+/* ---------- vídeos ---------- */
+function listaVideos(){
+  const nomeCarro = id => { const c = DATA.carros.find(x => x.id === id); return c ? `${c.modelo} ${c.versao}` : "—"; };
+  const L = [...DATA.videos].sort((a,b) => (a.ordem||99)-(b.ordem||99));
+  $("#vid-list").innerHTML = L.length ? L.map(v => `<div class="row">
+    ${v.capa ? `<img src="${esc(v.capa)}" alt="">` : `<span class="ph">${v.url ? "vídeo" : "em breve"}</span>`}
+    <div><b>${esc(v.titulo)}</b><span class="meta">${esc(v.tipo||"")} ${v.duracao?"· "+esc(v.duracao):""} · ${esc(nomeCarro(v.carro))} · ${v.url ? (v.url.startsWith("/uploads/") ? "arquivo enviado" : "link externo") : "sem vídeo ainda"}</span></div>
+    <span></span>
+    <div class="acts"><button class="btn sm" data-vedit="${esc(v.id)}">Editar</button><button class="btn sm danger" data-vdel="${esc(v.id)}">Excluir</button></div>
+  </div>`).join("") : `<div class="empty">Nenhum vídeo ainda.</div>`;
+}
+$("#vid-list").addEventListener("click", async e => {
+  const ed = e.target.closest("[data-vedit]"), del = e.target.closest("[data-vdel]");
+  if (ed) editorVideo(DATA.videos.find(x => x.id === ed.dataset.vedit));
+  if (del) {
+    const v = DATA.videos.find(x => x.id === del.dataset.vdel);
+    if (!confirm(`Excluir o vídeo "${v.titulo}"?`)) return;
+    try { await api("DELETE", "/api/admin/videos/" + encodeURIComponent(v.id)); DATA.videos = DATA.videos.filter(x => x !== v); listaVideos(); toast("Vídeo excluído"); }
+    catch (err) { toast(err.message, true); }
+  }
+});
+$("#vid-novo").addEventListener("click", () => editorVideo(null));
+function editorVideo(v){
+  const novo = !v; v = v || {ordem: DATA.videos.length + 1};
+  $("#vid-editor").innerHTML = `<form class="editor" id="f-vid" novalidate>
+    <div class="bar" style="margin:0"><h2>${novo ? "Novo vídeo" : "Editar vídeo"}</h2><button type="button" class="btn sm" id="v-fechar">Fechar</button></div>
+    <div class="grid">
+      <label for="v-titulo" class="wide">Título<input id="v-titulo" value="${esc(v.titulo||"")}" placeholder="Ex.: R34 V-Spec: partida a frio e ronco"></label>
+      <label for="v-carro">Carro<select id="v-carro"><option value="">— nenhum —</option>${DATA.carros.map(c => `<option value="${esc(c.id)}" ${v.carro===c.id?"selected":""}>${esc(c.modelo+" "+c.versao+" "+c.ano)}</option>`).join("")}</select></label>
+      <label for="v-tipo">Tipo<input id="v-tipo" value="${esc(v.tipo||"")}" placeholder="Ronco, Walkaround, Entrega…"></label>
+      <label for="v-duracao">Duração<input id="v-duracao" value="${esc(v.duracao||"")}" placeholder="0:45"></label>
+      <label for="v-ordem">Posição<input id="v-ordem" inputmode="numeric" value="${esc(v.ordem||"")}"></label>
+      <label for="v-url" class="wide">Link do vídeo (YouTube, Instagram, TikTok) ou envie o arquivo abaixo<input id="v-url" value="${esc(v.url||"")}" placeholder="https://www.instagram.com/reel/…"></label>
+    </div>
+    <div class="grid">
+      <div><div class="drop" id="v-drop" tabindex="0" role="button">Enviar arquivo de vídeo<br><span class="hint">MP4, MOV ou WEBM, até 300 MB. Toca no próprio site.</span></div><input type="file" id="v-file" accept="video/*" hidden></div>
+      <div><div class="drop" id="v-cdrop" tabindex="0" role="button">${v.capa ? `<img src="${esc(v.capa)}" alt="" style="max-height:120px;margin:0 auto 6px">` : ""}Enviar capa (opcional)<br><span class="hint">Sem capa, usa a foto do carro.</span></div><input type="file" id="v-cfile" accept="image/*" hidden></div>
+    </div>
+    <div class="prog" hidden id="v-prog"><i></i></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn pri" type="submit">${novo ? "Adicionar vídeo" : "Salvar"}</button><button type="button" class="btn" id="v-cancelar">Cancelar</button></div>
+  </form>`;
+  let capa = v.capa || "";
+  const fechar = () => { $("#vid-editor").innerHTML = ""; };
+  $("#v-fechar").onclick = fechar; $("#v-cancelar").onclick = fechar;
+  const ligar = (dropId, fileId, fn) => { const d = $(dropId), f = $(fileId); d.onclick = () => f.click(); d.onkeydown = e => (e.key==="Enter"||e.key===" ") && (e.preventDefault(), f.click()); f.onchange = () => { fn(f.files); f.value = ""; }; };
+  const subir = async (files, ok) => { const p = $("#v-prog"); p.hidden = false;
+    try { const a = await enviarArquivos(files, x => p.firstElementChild.style.width = (x*100)+"%"); ok(a[0]); } catch (err) { toast(err.message, true); }
+    p.hidden = true; p.firstElementChild.style.width = "0"; };
+  ligar("#v-drop", "#v-file", fs => subir(fs, a => { $("#v-url").value = a.url; toast("Vídeo enviado. Salve para publicar."); }));
+  ligar("#v-cdrop", "#v-cfile", fs => subir(fs, a => { capa = a.url; $("#v-cdrop").innerHTML = `<img src="${esc(a.url)}" alt="" style="max-height:120px;margin:0 auto 6px">Capa enviada`; }));
+  $("#f-vid").addEventListener("submit", async e => {
+    e.preventDefault();
+    const body = {titulo:$("#v-titulo").value, carro:$("#v-carro").value, tipo:$("#v-tipo").value, duracao:$("#v-duracao").value, ordem:$("#v-ordem").value, url:$("#v-url").value.trim(), capa};
+    try {
+      const n = novo ? await api("POST", "/api/admin/videos", body) : await api("PUT", "/api/admin/videos/" + encodeURIComponent(v.id), body);
+      if (novo) DATA.videos.push(n); else Object.assign(DATA.videos.find(x => x.id === v.id), n);
+      listaVideos(); fechar(); toast("Vídeo salvo");
+    } catch (err) { toast(err.message, true); }
+  });
+  $("#f-vid").scrollIntoView({behavior:"smooth"});
+}
+
+/* ---------- configurações ---------- */
+function preencherConfig(){
+  const c = DATA.config;
+  $("#c-wa").value = c.whatsapp || ""; $("#c-auto").checked = c.cotacaoAuto !== false;
+  $("#c-brl").value = c.brl; $("#c-pyg").value = c.pyg;
+  $("#c-info").textContent = `No site agora: US$ 1 = R$ ${Number(c.brl).toFixed(2).replace(".",",")} · ₲ ${Number(c.pyg).toLocaleString("es-PY")} (${c.cotacaoFonte}${c.cotacaoData ? ", " + c.cotacaoData : ""}).`;
+  toggleAuto();
+}
+const toggleAuto = () => { const a = $("#c-auto").checked; $("#c-brl").disabled = a; $("#c-pyg").disabled = a; };
+$("#c-auto").addEventListener("change", toggleAuto);
+$("#f-config").addEventListener("submit", async e => {
+  e.preventDefault();
+  try { DATA.config = await api("PUT", "/api/admin/config", {whatsapp:$("#c-wa").value, cotacaoAuto:$("#c-auto").checked, brl:$("#c-brl").value.replace(",","."), pyg:$("#c-pyg").value.replace(/\D/g,"")}); preencherConfig(); toast("Configurações salvas"); }
+  catch (err) { toast(err.message, true); }
+});
+$("#c-atualizar").addEventListener("click", async () => {
+  try { DATA.config = await api("POST", "/api/admin/cotacao"); preencherConfig(); toast("Cotação atualizada pela Mundial Cambios"); }
+  catch (err) { toast(err.message, true); }
+});
+
+/* ---------- início ---------- */
+fetch("/api/me").then(r => r.json()).then(d => d.admin ? entrar() : mostrarLogin()).catch(mostrarLogin);
+</script>
+</body>
+</html>
