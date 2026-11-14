@@ -421,10 +421,13 @@ const CONFIG = {
   // Número do WhatsApp com DDI, só dígitos (ex.: "595981123456" ou "5545999998888").
   // Vazio = o WhatsApp abre para a pessoa escolher o contato.
   whatsapp: "",
-  // Cotação de referência (US$ 1 =)
-  brl: 5.40,
-  pyg: 7350,
-  cotacaoData: "14/11/2026",
+  // Cotação de referência (US$ 1 =), tirada de mundialcambios.com.py, sucursal Globo Center.
+  // Real: "Cambio de arbitraje" DÓLAR X REAL, coluna VENTA. Guarani: DOLARES AMERICANOS, coluna VENTA.
+  brl: 5.65,
+  pyg: 6200,
+  cotacaoData: "14/11/2026 11:16",
+  cotacaoFonte: "Mundial Cambios",
+  cotacaoLink: "https://mundialcambios.com.py/",
   anoAtual: 2026
 };
 
@@ -529,7 +532,7 @@ function art(c, foto){
 }
 
 /* Cotação no topo */
-$("#rates").innerHTML = `US$ 1 = <b>R$ ${CONFIG.brl.toFixed(2).replace(".",",")}</b> · <b>₲ ${CONFIG.pyg.toLocaleString("es-PY")}</b> · ref. ${CONFIG.cotacaoData}`;
+$("#rates").innerHTML = `US$ 1 = <b>R$ ${CONFIG.brl.toFixed(2).replace(".",",")}</b> · <b>₲ ${CONFIG.pyg.toLocaleString("es-PY")}</b> · <a href="${CONFIG.cotacaoLink}" target="_blank" rel="noopener" style="color:inherit">${CONFIG.cotacaoFonte}</a>, ${CONFIG.cotacaoData}`;
 $("#ano").textContent = CONFIG.anoAtual;
 const codes = [...new Set(ESTOQUE.map(c=>c.chassi).concat(["JZA80","BNR32","FD3S","AE86","EK9","DC2","GC8","Z33"]))];
 $("#ticker").innerHTML = [...codes, ...codes].map(c=>`<span>${esc(c)}</span>`).join("");
@@ -629,7 +632,7 @@ function abrirCarro(id){
         <div class="d-price">
           <div class="usd"><small>US$</small>${c.preco.toLocaleString("pt-BR")}</div>
           <div class="conv"><span>≈ ${fBRL(c.preco*CONFIG.brl)}</span><span>≈ ${fPYG(c.preco*CONFIG.pyg)}</span></div>
-          <div class="note">Conversão de referência (${CONFIG.cotacaoData}). Valor fechado em dólar.</div>
+          <div class="note">Conversão de referência pela cotação de venda da ${CONFIG.cotacaoFonte} (${CONFIG.cotacaoData}). Valor fechado em dólar.</div>
         </div>
         <div class="d-ctas">
           <a class="btn btn-green" href="${waCarro(c)}" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#ic-wa"/></svg>${vendido?"Quero um igual":"Tenho interesse neste carro"}</a>
