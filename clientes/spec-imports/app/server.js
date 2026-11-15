@@ -59,6 +59,7 @@ const slug = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCa
 const urlOk = (u) => /^(\/uploads\/[\w.-]+|https:\/\/[^\s"'<>]+)$/.test(u);
 const STATUS = ["disponivel", "reservado", "transito", "vendido"];
 
+const linhas = (v) => (Array.isArray(v) ? v : String(v || "").split("\n")).map(x => txt(x, 160)).filter(Boolean).slice(0, 12);
 function limparCarro(b, id) {
   const fotos = (Array.isArray(b.fotos) ? b.fotos : []).slice(0, 30)
     .map(f => ({ url: txt(f?.url, 500), credito: txt(f?.credito, 200), creditoLink: txt(f?.creditoLink, 500) }))
@@ -72,8 +73,8 @@ function limparCarro(b, id) {
     peso: txt(b.peso, 30), zero100: txt(b.zero100, 20), km: txt(b.km, 30), cor: txt(b.cor, 60),
     corHex: /^#[0-9a-f]{6}$/i.test(b.corHex) ? b.corHex : "#888888",
     volante: txt(b.volante, 40) || "Direita (JDM)", leilao: txt(b.leilao, 30),
-    descricao: txt(b.descricao, 4000),
-    destaques: (Array.isArray(b.destaques) ? b.destaques : String(b.destaques || "").split("\n")).map(x => txt(x, 160)).filter(Boolean).slice(0, 12),
+    descricao: txt(b.descricao, 4000), descricaoEs: txt(b.descricaoEs, 4000),
+    destaques: linhas(b.destaques), destaquesEs: linhas(b.destaquesEs),
     asa: !!b.asa, fotos
   };
   if (!c.marca || !c.modelo || !c.ano || !c.preco) throw new Error("Preencha marca, modelo, ano e preço.");
@@ -82,7 +83,7 @@ function limparCarro(b, id) {
 function limparVideo(b, id) {
   const v = {
     id: id || crypto.randomBytes(5).toString("hex"),
-    titulo: txt(b.titulo, 120), carro: txt(b.carro, 80), tipo: txt(b.tipo, 40), duracao: txt(b.duracao, 10),
+    titulo: txt(b.titulo, 120), tituloEs: txt(b.tituloEs, 120), carro: txt(b.carro, 80), tipo: txt(b.tipo, 40), duracao: txt(b.duracao, 10),
     url: txt(b.url, 500), capa: txt(b.capa, 500), ordem: Math.round(num(b.ordem)) || 99
   };
   if (!v.titulo) throw new Error("Dê um título ao vídeo.");

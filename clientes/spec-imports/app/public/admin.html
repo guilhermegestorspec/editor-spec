@@ -268,6 +268,11 @@ function editorCarro(c){
     <fieldset><legend>Descrição</legend>
       <label for="e-descricao">Sobre este carro<textarea id="e-descricao" rows="5" placeholder="Histórico, estado de conservação, revisões, opcionais…">${esc(c.descricao||"")}</textarea></label>
       <label for="e-destaques">Destaques (um por linha)<textarea id="e-destaques" rows="4" placeholder="Rodas BBS originais&#10;Histórico de manutenção do Japão">${esc((c.destaques||[]).join("\n"))}</textarea></label>
+    </fieldset>
+    <fieldset><legend>Em espanhol (opcional)</legend>
+      <p class="hint" style="margin:0">Aparece quando o visitante escolhe "ES" no topo do site. Se ficar vazio, o site mostra o texto em português.</p>
+      <label for="e-descricaoEs">Sobre este auto<textarea id="e-descricaoEs" rows="5" placeholder="Historial, estado de conservación, mantenimientos, opcionales…">${esc(c.descricaoEs||"")}</textarea></label>
+      <label for="e-destaquesEs">Destacados (uno por línea)<textarea id="e-destaquesEs" rows="4" placeholder="Llantas BBS originales&#10;Historial de mantenimiento en Japón">${esc((c.destaquesEs||[]).join("\n"))}</textarea></label>
       <label class="check" for="e-asa"><input type="checkbox" id="e-asa" ${c.asa?"checked":""}> Tem aerofólio (só muda a ilustração quando não há foto)</label>
     </fieldset>
     <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn pri" type="submit">${novo ? "Adicionar ao estoque" : "Salvar alterações"}</button><button type="button" class="btn" id="e-cancelar">Cancelar</button></div>
@@ -288,7 +293,7 @@ function editorCarro(c){
     e.preventDefault();
     const v = k => ($("#e-" + k) || {}).value;
     const body = {}; CAMPOS.forEach(([, fs]) => fs.forEach(([k]) => body[k] = v(k)));
-    Object.assign(body, {corHex: v("corHex"), descricao: v("descricao"), destaques: v("destaques"), asa: $("#e-asa").checked, fotos: FOTOS});
+    Object.assign(body, {corHex: v("corHex"), descricao: v("descricao"), destaques: v("destaques"), descricaoEs: v("descricaoEs"), destaquesEs: v("destaquesEs"), asa: $("#e-asa").checked, fotos: FOTOS});
     try {
       const n = novo ? await api("POST", "/api/admin/carros", body) : await api("PUT", "/api/admin/carros/" + encodeURIComponent(c.id), body);
       if (novo) DATA.carros.push(n); else Object.assign(DATA.carros.find(x => x.id === c.id), n);
@@ -356,6 +361,7 @@ function editorVideo(v){
     <div class="bar" style="margin:0"><h2>${novo ? "Novo vídeo" : "Editar vídeo"}</h2><button type="button" class="btn sm" id="v-fechar">Fechar</button></div>
     <div class="grid">
       <label for="v-titulo" class="wide">Título<input id="v-titulo" value="${esc(v.titulo||"")}" placeholder="Ex.: R34 V-Spec: partida a frio e ronco"></label>
+      <label for="v-tituloEs" class="wide">Título em espanhol (opcional)<input id="v-tituloEs" value="${esc(v.tituloEs||"")}" placeholder="Ej.: R34 V-Spec: arranque en frío y sonido"></label>
       <label for="v-carro">Carro<select id="v-carro"><option value="">— nenhum —</option>${DATA.carros.map(c => `<option value="${esc(c.id)}" ${v.carro===c.id?"selected":""}>${esc(c.modelo+" "+c.versao+" "+c.ano)}</option>`).join("")}</select></label>
       <label for="v-tipo">Tipo<input id="v-tipo" value="${esc(v.tipo||"")}" placeholder="Ronco, Walkaround, Entrega…"></label>
       <label for="v-duracao">Duração<input id="v-duracao" value="${esc(v.duracao||"")}" placeholder="0:45"></label>
@@ -380,7 +386,7 @@ function editorVideo(v){
   ligar("#v-cdrop", "#v-cfile", fs => subir(fs, a => { capa = a.url; $("#v-cdrop").innerHTML = `<img src="${esc(a.url)}" alt="" style="max-height:120px;margin:0 auto 6px">Capa enviada`; }));
   $("#f-vid").addEventListener("submit", async e => {
     e.preventDefault();
-    const body = {titulo:$("#v-titulo").value, carro:$("#v-carro").value, tipo:$("#v-tipo").value, duracao:$("#v-duracao").value, ordem:$("#v-ordem").value, url:$("#v-url").value.trim(), capa};
+    const body = {titulo:$("#v-titulo").value, tituloEs:$("#v-tituloEs").value, carro:$("#v-carro").value, tipo:$("#v-tipo").value, duracao:$("#v-duracao").value, ordem:$("#v-ordem").value, url:$("#v-url").value.trim(), capa};
     try {
       const n = novo ? await api("POST", "/api/admin/videos", body) : await api("PUT", "/api/admin/videos/" + encodeURIComponent(v.id), body);
       if (novo) DATA.videos.push(n); else Object.assign(DATA.videos.find(x => x.id === v.id), n);

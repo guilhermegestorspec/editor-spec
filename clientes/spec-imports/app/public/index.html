@@ -70,7 +70,13 @@ nav.main a:hover{color:var(--white)}
 .btn-line{background:var(--surface-2);color:var(--fg);box-shadow:inset 0 0 0 1px var(--line-2)}
 .btn svg{width:20px;height:20px;flex-shrink:0}
 .top .btn{padding:10px 18px;font-size:.82rem}
-@media (max-width:900px){nav.main{display:none}.top .btn{margin-left:auto}}
+.lang{display:flex;flex-shrink:0;border:1px solid var(--line-2)}
+.lang button{display:flex;align-items:center;gap:6px;background:none;border:0;padding:7px 10px;font-weight:700;font-size:.78rem;letter-spacing:.06em;color:var(--muted);cursor:pointer}
+.lang button svg{width:18px;height:12px;border-radius:2px}
+.lang button[aria-pressed="true"]{background:var(--white);color:var(--black)}
+.lang button:not([aria-pressed="true"]):hover{color:var(--white)}
+@media (max-width:900px){nav.main{display:none}.lang{margin-left:auto}}
+@media (max-width:560px){.top .btn span{display:none}.top .btn{padding:10px 14px}header.top .wrap{gap:12px}}
 @media (max-width:460px){.brand img.full{display:none}.brand .sym{display:block}}
 
 /* hero */
@@ -273,6 +279,10 @@ footer img{height:40px;width:auto}
     <a href="#como-funciona">Como funciona</a>
     <a href="#encomenda">Sob encomenda</a>
   </nav>
+  <div class="lang" role="group" aria-label="Idioma">
+    <button type="button" data-lang="pt" aria-pressed="true" title="Português"><svg aria-hidden="true"><use href="#fl-br"/></svg>PT</button>
+    <button type="button" data-lang="es" aria-pressed="false" title="Español"><svg aria-hidden="true"><use href="#fl-py"/></svg>ES</button>
+  </div>
   <a class="btn btn-green" id="wa-top" href="#" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#ic-wa"/></svg><span>Falar no WhatsApp</span></a>
 </div></header>
 
@@ -436,6 +446,130 @@ let CONFIG = {whatsapp:"", brl:5.65, pyg:6200, cotacaoData:"", cotacaoFonte:"Mun
 let ESTOQUE = [];
 let VIDEOS = [];
 
+/* ---------- Idioma: Português (padrão) e Español ---------- */
+let LANG = "pt";
+try { LANG = localStorage.getItem("spec-lang") || ""; } catch {}
+if (LANG !== "pt" && LANG !== "es") LANG = (navigator.language || "").toLowerCase().startsWith("es") ? "es" : "pt";
+const ES = {
+  // topo e navegação
+  "Carros do Japão · Venda e importação para Paraguai e Brasil (30+ anos)": "Autos de Japón · Venta e importación a Paraguay y Brasil (30+ años)",
+  "Cotação de referência": "Cotización de referencia",
+  "Estoque": "Stock", "Vídeos": "Videos", "Como funciona": "Cómo funciona", "Sob encomenda": "Por encargo",
+  "Falar no WhatsApp": "Hablar por WhatsApp", "Seções": "Secciones", "Spec Imports, início": "Spec Imports, inicio",
+  // hero
+  "Direto do Japão · Venda e importação": "Directo de Japón · Venta e importación",
+  "O JDM que você quer,": "El JDM que querés,", "direto do Japão.": "directo de Japón.",
+  "Carros importados do Japão, disponíveis para venda e importação ao Paraguai. Os modelos com mais de 30 anos de fabricação também podem ser vendidos e importados para o Brasil.":
+    "Autos importados de Japón, disponibles para venta e importación a Paraguay. Los modelos con más de 30 años de fabricación también pueden venderse e importarse a Brasil.",
+  "Ver estoque": "Ver stock", "Encomendar meu carro": "Encargar mi auto",
+  "Qualidade": "Calidad", "Agilidade": "Agilidad", "Confiança": "Confianza", "Carro em destaque": "Auto destacado",
+  // estoque
+  "Carros": "Autos", "disponíveis": "disponibles",
+  "Preço em dólar, com a conversão para real e guarani logo abaixo. Abra o carro para ver ficha técnica, fotos e chamar no WhatsApp com o modelo já na mensagem.":
+    "Precio en dólares, con la conversión a reales y guaraníes justo debajo. Abrí el auto para ver la ficha técnica, las fotos y escribirnos por WhatsApp con el modelo ya en el mensaje.",
+  "Filtros do estoque": "Filtros del stock", "Todos": "Todos", "Vão para o Brasil (30+ anos)": "Van a Brasil (30+ años)",
+  "Até US$ 60 mil": "Hasta US$ 60 mil", "Só disponíveis": "Solo disponibles",
+  "Buscar modelo, motor, chassi…": "Buscar modelo, motor, chasis…", "Buscar no estoque": "Buscar en el stock", "Ordenar": "Ordenar",
+  "Destaques": "Destacados", "Menor preço": "Menor precio", "Maior preço": "Mayor precio",
+  "Mais novos": "Más nuevos", "Mais antigos": "Más antiguos", "Mais potentes": "Más potentes",
+  "Estoque e valores de demonstração para aprovação do layout. As artes serão substituídas pelas fotos reais de cada carro.":
+    "Stock y valores de demostración para la aprobación del diseño. Las imágenes se reemplazarán por las fotos reales de cada auto.",
+  // faixa 30+
+  "Mais de 30 anos? Vende e importa para o Brasil": "¿Más de 30 años? Se vende e importa a Brasil",
+  "Todo o estoque está disponível para o Paraguai. Para o Brasil, a lei permite importar carro usado com mais de 30 anos de fabricação, como veículo de coleção. Os carros que já passaram dos 30 anos estão marcados no estoque.":
+    "Todo el stock está disponible para Paraguay. Para Brasil, la ley permite importar autos usados con más de 30 años de fabricación, como vehículo de colección. Los autos que ya superaron los 30 años están marcados en el stock.",
+  "Ver elegíveis": "Ver elegibles",
+  // vídeos
+  "Ronco, walkaround": "Sonido, walkaround", "e entrega": "y entrega",
+  "Cada carro ganha vídeo de apresentação: partida a frio, detalhes de lataria e interior, test drive e a entrega para o cliente.":
+    "Cada auto tiene su video de presentación: arranque en frío, detalles de carrocería e interior, prueba de manejo y la entrega al cliente.",
+  "Vídeo": "Video",
+  // como funciona
+  "Do leilão": "De la subasta", "até a chave": "a la llave",
+  "Escolha": "Elección", "Você escolhe no estoque ou pede um modelo específico. A Spec procura nos leilões do Japão.": "Elegís del stock o pedís un modelo específico. Spec lo busca en las subastas de Japón.",
+  "Inspeção": "Inspección", "Folha de leilão traduzida, nota de inspeção, fotos e vídeo antes de fechar.": "Hoja de subasta traducida, nota de inspección, fotos y video antes de cerrar.",
+  "Embarque": "Embarque", "Transporte marítimo com seguro e rastreio. Você acompanha cada etapa pelo WhatsApp.": "Transporte marítimo con seguro y rastreo. Seguís cada etapa por WhatsApp.",
+  "Documentação": "Documentación", "Importação e documentação para o Paraguai. Para o Brasil, carros com mais de 30 anos, como veículo de coleção.": "Importación y documentación para Paraguay. Para Brasil, autos con más de 30 años, como vehículo de colección.",
+  "Entrega": "Entrega", "Carro revisado, lavado e com vídeo da entrega. A chave é sua.": "Auto revisado, lavado y con video de la entrega. La llave es tuya.",
+  "Nota oficial de inspeção japonesa e mapa de lataria em todos os carros.": "Nota oficial de inspección japonesa y mapa de carrocería en todos los autos.",
+  "Resposta rápida no WhatsApp e acompanhamento de cada etapa, do leilão à entrega.": "Respuesta rápida por WhatsApp y seguimiento de cada etapa, de la subasta a la entrega.",
+  "Valor fechado em dólar, com referência em real e guarani. Sem custo escondido.": "Valor cerrado en dólares, con referencia en reales y guaraníes. Sin costos ocultos.",
+  // atuação
+  "Atuação": "Dónde operamos", "Para onde": "A dónde", "cada carro vai": "va cada auto",
+  "Bandeira do Paraguai": "Bandera de Paraguay", "Bandeira do Brasil": "Bandera de Brasil",
+  "Paraguai · todo o estoque": "Paraguay · todo el stock",
+  "Todos os carros estão disponíveis para venda e importação ao Paraguai, com documentação e entrega por lá.": "Todos los autos están disponibles para venta e importación a Paraguay, con documentación y entrega en Paraguay.",
+  "Brasil · mais de 30 anos": "Brasil · más de 30 años",
+  "Carros com mais de 30 anos de fabricação podem ser vendidos e importados para o Brasil como veículo de coleção.": "Los autos con más de 30 años de fabricación pueden venderse e importarse a Brasil como vehículo de colección.",
+  // encomenda
+  "Não achou": "¿No encontraste", "o seu?": "el tuyo?",
+  "Diga o modelo, o ano e quanto quer investir. A Spec Imports procura nos leilões do Japão e manda as opções com nota, fotos e preço final.":
+    "Decinos el modelo, el año y cuánto querés invertir. Spec Imports lo busca en las subastas de Japón y te envía las opciones con nota, fotos y precio final.",
+  "Para o Brasil: clássicos dos anos 80 e 90 com mais de 30 anos": "Para Brasil: clásicos de los años 80 y 90 con más de 30 años",
+  "Volante à direita, como saíram de fábrica no Japão": "Volante a la derecha, como salieron de fábrica en Japón",
+  "Modelo desejado": "Modelo deseado", "Ano ou faixa": "Año o rango", "Orçamento (US$)": "Presupuesto (US$)",
+  "Seu nome": "Tu nombre", "Cidade / estado": "Ciudad / departamento",
+  "Ex.: Nissan Skyline GT-R R33": "Ej.: Nissan Skyline GT-R R33", "Ex.: 1995 a 1998": "Ej.: 1995 a 1998", "Ex.: 60000": "Ej.: 60000",
+  "Nome": "Nombre", "Ex.: Curitiba - PR": "Ej.: Ciudad del Este",
+  "Enviar pedido no WhatsApp": "Enviar pedido por WhatsApp",
+  "O WhatsApp abre com a mensagem pronta. Você revisa e envia.": "WhatsApp se abre con el mensaje listo. Lo revisás y lo enviás.",
+  // rodapé
+  "Spec Imports · Paraguai e Brasil": "Spec Imports · Paraguay y Brasil",
+  "Carros importados do Japão para venda e importação ao Paraguai, e ao Brasil com mais de 30 anos. Valores em dólar; conversões em real e guarani são referência e variam com o câmbio do dia.":
+    "Autos importados de Japón para venta e importación a Paraguay, y a Brasil con más de 30 años. Valores en dólares; las conversiones a reales y guaraníes son referenciales y varían con la cotización del día.",
+  "Área do administrador": "Área del administrador",
+  // textos montados pelo script
+  "Disponível": "Disponible", "Reservado": "Reservado", "Em trânsito": "En tránsito", "Vendido": "Vendido",
+  "Japão": "Japón", "Elegível Brasil 30+": "Apto Brasil 30+", "Potência": "Potencia", "Ver ficha →": "Ver ficha →", "Ver": "Ver",
+  "Nenhum carro com esses filtros agora. Peça sob encomenda que a gente procura.": "No hay autos con esos filtros ahora. Pedilo por encargo y lo buscamos.",
+  "Frente": "Frente", "Traseira": "Trasera", "Interior": "Interior", "Motor": "Motor", "Painel": "Tablero", "em breve": "próximamente",
+  "Fechar": "Cerrar", "Quero um igual": "Quiero uno igual", "Tenho interesse neste carro": "Me interesa este auto",
+  "Ficha técnica": "Ficha técnica", "Torque": "Torque", "0 a 100 km/h": "0 a 100 km/h", "Câmbio": "Caja de cambios", "Tração": "Tracción",
+  "Peso": "Peso", "Quilometragem": "Kilometraje", "Cor": "Color", "Volante": "Volante", "Nota de leilão": "Nota de subasta",
+  "Disponível para": "Disponible para", "Paraguai e Brasil": "Paraguay y Brasil", "Paraguai": "Paraguay",
+  "Sobre este carro": "Sobre este auto", "Em breve": "Próximamente", "Destaque do estoque": "Destacado del stock", "Destaque": "Destacado",
+  "Carregando estoque…": "Cargando stock…", "Ronco": "Sonido", "Test drive": "Prueba de manejo", "Walkaround": "Walkaround", "Drift": "Drift",
+  "Não consegui carregar o estoque agora. Atualize a página ou chame a gente no WhatsApp.": "No pudimos cargar el stock ahora. Actualizá la página o escribinos por WhatsApp."
+};
+const T = s => LANG === "es" ? (ES[s] ?? s) : s;
+/* Termos técnicos digitados no painel em português → espanhol */
+const SPEC_ES = [["Automatizado dupla embreagem","Doble embrague"],["marchas","velocidades"],["Automático","Automática"],["Traseira","Trasera"],["Dianteira","Delantera"],["Integral com","Integral con"],["motor central","motor central"],["Direita","Derecha"],["Esquerda","Izquierda"],["Prata metálico","Plata metalizado"],["branco e preto","blanco y negro"],["birrotor","birrotor"]];
+const S = v => { let t = String(v ?? ""); if (LANG === "es") SPEC_ES.forEach(([a,b]) => t = t.split(a).join(b)); return t; };
+const desc = c => (LANG === "es" && c.descricaoEs) ? c.descricaoEs : (c.descricao || "");
+const dest = c => (LANG === "es" && c.destaquesEs && c.destaquesEs.length) ? c.destaquesEs : (c.destaques || []);
+const titV = v => (LANG === "es" && v.tituloEs) ? v.tituloEs : v.titulo;
+
+const ESTATICO = [];
+(function capturar(){
+  const pular = ["grid","hero-car","vgrid","detail","vmodal","rates","ticker","ano"];
+  const fora = el => pular.some(id => el.closest("#" + id));
+  const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {acceptNode: n => {
+    const p = n.parentElement; if (!p || p.closest("script,style,.lang") || fora(p)) return NodeFilter.FILTER_REJECT;
+    return n.nodeValue.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT; }});
+  let n; while ((n = w.nextNode())) ESTATICO.push({n, pt: n.nodeValue});
+  document.querySelectorAll("[placeholder],[aria-label],[alt]").forEach(el => {
+    if (fora(el) || el.closest(".lang")) return;
+    ["placeholder","aria-label","alt"].forEach(a => el.hasAttribute(a) && ESTATICO.push({el, a, pt: el.getAttribute(a)}));
+  });
+})();
+const TITULO = {pt: document.title, es: "Spec Imports · Autos de Japón"};
+function aplicarIdioma(){
+  document.documentElement.lang = LANG === "es" ? "es-PY" : "pt-BR";
+  document.title = TITULO[LANG];
+  ESTATICO.forEach(x => {
+    const k = x.pt.trim(), tr = LANG === "es" ? ES[k] : null;
+    if (x.n) x.n.nodeValue = tr ? x.pt.replace(k, tr) : x.pt; else x.el.setAttribute(x.a, tr || x.pt);
+  });
+  document.querySelectorAll("[data-lang]").forEach(b => b.setAttribute("aria-pressed", b.dataset.lang === LANG));
+}
+document.querySelectorAll("[data-lang]").forEach(b => b.addEventListener("click", () => {
+  if (b.dataset.lang === LANG) return;
+  LANG = b.dataset.lang; try { localStorage.setItem("spec-lang", LANG); } catch {}
+  aplicarIdioma(); aplicarConfig(); render(); renderHero(); renderVideos(); atualizaEncomenda();
+  const h = location.hash.slice(1); if (h.startsWith("carro-") && !$("#detail").hidden) abrirCarro(h.slice(6));
+}));
+aplicarIdioma();
+
 /* ========================================================= */
 const $ = (s, r=document) => r.querySelector(s);
 const STATUS = {disponivel:["Disponível",""], reservado:["Reservado","reservado"], transito:["Em trânsito","transito"], vendido:["Vendido","vendido"]};
@@ -452,7 +586,9 @@ function waLink(msg){
   return `https://wa.me/${n}?text=${encodeURIComponent(msg)}`;
 }
 function waCarro(c){
-  return waLink(`Olá, Spec Imports! Tenho interesse no *${nome(c)}* ${c.ano} (${c.chassi}), anunciado por ${fUSD(c.preco)}. Ainda está disponível? Ref.: ${c.id}`);
+  return waLink(LANG === "es"
+    ? `¡Hola, Spec Imports! Me interesa el *${nome(c)}* ${c.ano} (${c.chassi}), publicado a ${fUSD(c.preco)}. ¿Sigue disponible? Ref.: ${c.id}`
+    : `Olá, Spec Imports! Tenho interesse no *${nome(c)}* ${c.ano} (${c.chassi}), anunciado por ${fUSD(c.preco)}. Ainda está disponível? Ref.: ${c.id}`);
 }
 
 /* Arte do carro (usada enquanto não há foto real) */
@@ -481,7 +617,7 @@ function carSVG(c, uid){
 let uidN = 0;
 function art(c, foto){
   if (foto && foto.url) {
-    const cred = foto.credito ? (foto.creditoLink ? `<a class="cred" href="${esc(foto.creditoLink)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Foto: ${esc(foto.credito)}</a>` : `<span class="cred">Foto: ${esc(foto.credito)}</span>`) : "";
+    const cred = foto.credito ? (foto.creditoLink ? `<a class="cred" href="${esc(foto.creditoLink)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${T("Foto")}: ${esc(foto.credito)}</a>` : `<span class="cred">${T("Foto")}: ${esc(foto.credito)}</span>`) : "";
     return `<div class="art"><img class="photo" src="${esc(foto.url)}" alt="${esc(nome(c))}" loading="lazy">${cred}</div>`;
   }
   const u = ++uidN;
@@ -502,7 +638,7 @@ const codes = [...new Set(ESTOQUE.map(c=>c.chassi).concat(["JZA80","BNR32","FD3S
 $("#ticker").innerHTML = [...codes, ...codes].map(c=>`<span>${esc(c)}</span>`).join("");
 
 /* WhatsApp geral */
-  const msgGeral = waLink("Olá, Spec Imports! Vi o site e quero saber mais sobre os carros do estoque.");
+  const msgGeral = waLink(LANG === "es" ? "¡Hola, Spec Imports! Vi el sitio web y quiero saber más sobre los autos en stock." : "Olá, Spec Imports! Vi o site e quero saber mais sobre os carros do estoque.");
 $("#wa-top").href = msgGeral; $("#wa-float").href = msgGeral;
 }
 
@@ -526,12 +662,12 @@ function render(){
   lista.sort(by);
   $("#grid").innerHTML = lista.length ? lista.map(c => {
     const [st, cls] = STATUS[c.status];
-    return `<button class="card" data-id="${c.id}" aria-label="Ver ${esc(nome(c))} ${c.ano}">
+    return `<button class="card" data-id="${c.id}" aria-label="${T("Ver")} ${esc(nome(c))} ${c.ano}">
       <div class="media">
         ${art(c, (c.fotos||[])[0])}
-        <span class="pill ${cls}"><i></i>${st}</span>
-        <span class="flag">JDM · Japão</span>
-        ${elegivelBR(c)?`<span class="badge30"><svg aria-hidden="true"><use href="#fl-br"/></svg>Elegível Brasil 30+</span>`:""}
+        <span class="pill ${cls}"><i></i>${T(st)}</span>
+        <span class="flag">JDM · ${T("Japão")}</span>
+        ${elegivelBR(c)?`<span class="badge30"><svg aria-hidden="true"><use href="#fl-br"/></svg>${T("Elegível Brasil 30+")}</span>`:""}
       </div>
       <div class="body">
         <div class="row1">
@@ -539,7 +675,7 @@ function render(){
           <div class="yr">${c.ano}</div>
         </div>
         <div class="specs-mini">
-          <div><b>${c.cv} cv</b><span>Potência</span></div>
+          <div><b>${c.cv} cv</b><span>${T("Potência")}</span></div>
           <div><b>${esc(c.zero100)}</b><span>0–100</span></div>
           <div><b>${esc(c.km.replace(" km",""))}</b><span>km</span></div>
         </div>
@@ -548,11 +684,11 @@ function render(){
             <div class="usd"><small>US$</small>${c.preco.toLocaleString("pt-BR")}</div>
             <div class="conv">≈ ${fBRL(c.preco*CONFIG.brl)}<br>≈ ${fPYG(c.preco*CONFIG.pyg)}</div>
           </div>
-          <span class="go">Ver ficha →</span>
+          <span class="go">${T("Ver ficha →")}</span>
         </div>
       </div>
     </button>`;
-  }).join("") : `<div class="empty">Nenhum carro com esses filtros agora. Peça sob encomenda que a gente procura.</div>`;
+  }).join("") : `<div class="empty">${T("Nenhum carro com esses filtros agora. Peça sob encomenda que a gente procura.")}</div>`;
 }
 document.querySelectorAll(".chip").forEach(b => b.addEventListener("click", () => {
   filtro = b.dataset.f;
@@ -579,50 +715,50 @@ function abrirCarro(id){
   const slots = Math.max(fotos.length, 1);
   const thumbs = fotos.length
     ? fotos.map((f,i)=>`<button data-foto="${i}" aria-current="${i===0}" aria-label="Foto ${i+1}"><img src="${esc(f.url)}" alt="" loading="lazy"></button>`).join("")
-    : ["Frente","Traseira","Interior","Motor","Painel"].map(t=>`<button disabled aria-label="Foto ${t} em breve"><span class="slot">${t}</span></button>`).join("");
+    : ["Frente","Traseira","Interior","Motor","Painel"].map(t=>`<button disabled aria-label="${T("Foto")} ${T(t)} ${T("em breve")}"><span class="slot">${T(t)}</span></button>`).join("");
   const vendido = c.status==="vendido";
   const d = $("#detail");
   d.innerHTML = `<div class="d-box">
-    <button class="d-close" aria-label="Fechar">×</button>
+    <button class="d-close" aria-label="${T("Fechar")}">×</button>
     <div class="d-grid">
       <div class="d-left">
-        <div class="d-media" id="d-media">${art(c, fotos[0])}<span class="pill ${cls}"><i></i>${st}</span>${elegivelBR(c)?`<span class="badge30"><svg aria-hidden="true"><use href="#fl-br"/></svg>Elegível Brasil 30+</span>`:""}</div>
+        <div class="d-media" id="d-media">${art(c, fotos[0])}<span class="pill ${cls}"><i></i>${T(st)}</span>${elegivelBR(c)?`<span class="badge30"><svg aria-hidden="true"><use href="#fl-br"/></svg>${T("Elegível Brasil 30+")}</span>`:""}</div>
         <div class="thumbs">${thumbs}</div>
       </div>
       <div class="d-right">
         <div>
-          <div class="eyebrow"><span class="slash">/</span>${esc(c.marca)} · ${esc(c.chassi)} · ${c.ano} · Japão</div>
+          <div class="eyebrow"><span class="slash">/</span>${esc(c.marca)} · ${esc(c.chassi)} · ${c.ano} · ${T("Japão")}</div>
           <h2 id="d-title" style="margin-top:10px">${esc(c.modelo)} <span class="g">${esc(c.versao)}</span></h2>
         </div>
         <div class="d-price">
           <div class="usd"><small>US$</small>${c.preco.toLocaleString("pt-BR")}</div>
           <div class="conv"><span>≈ ${fBRL(c.preco*CONFIG.brl)}</span><span>≈ ${fPYG(c.preco*CONFIG.pyg)}</span></div>
-          <div class="note">Conversão de referência pela cotação de venda da ${CONFIG.cotacaoFonte} (${CONFIG.cotacaoData}). Valor fechado em dólar.</div>
+          <div class="note">${LANG === "es" ? `Conversión referencial según la cotización de venta de ${esc(CONFIG.cotacaoFonte)} (${esc(CONFIG.cotacaoData)}). Valor cerrado en dólares.` : `Conversão de referência pela cotação de venda da ${esc(CONFIG.cotacaoFonte)} (${esc(CONFIG.cotacaoData)}). Valor fechado em dólar.`}</div>
         </div>
         <div class="d-ctas">
-          <a class="btn btn-green" href="${waCarro(c)}" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#ic-wa"/></svg>${vendido?"Quero um igual":"Tenho interesse neste carro"}</a>
+          <a class="btn btn-green" href="${waCarro(c)}" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#ic-wa"/></svg>${T(vendido?"Quero um igual":"Tenho interesse neste carro")}</a>
         </div>
-        ${elegivelBR(c)?`<div class="br-note"><svg aria-hidden="true"><use href="#fl-br"/></svg><div><b>Paraguai e Brasil.</b> Com ${idade(c)} anos de fabricação, este carro pode ser vendido e importado para o Paraguai ou para o Brasil, como veículo de coleção. Consulte as condições pelo WhatsApp.</div></div>`:`<div class="br-note"><svg aria-hidden="true"><use href="#fl-py"/></svg><div><b>Disponível para o Paraguai.</b> Venda e importação ao Paraguai. Para o Brasil, só carros com mais de 30 anos de fabricação.</div></div>`}
-        <table class="spec-table" aria-label="Ficha técnica">
-          <tr><th>Motor</th><td>${esc(c.motor)}</td></tr>
-          <tr><th>Potência</th><td>${c.cv} cv</td></tr>
-          <tr><th>Torque</th><td>${esc(c.torque)}</td></tr>
-          <tr><th>0 a 100 km/h</th><td>${esc(c.zero100)}</td></tr>
-          <tr><th>Câmbio</th><td>${esc(c.cambio)}</td></tr>
-          <tr><th>Tração</th><td>${esc(c.tracao)}</td></tr>
-          <tr><th>Peso</th><td>${esc(c.peso)}</td></tr>
-          <tr><th>Quilometragem</th><td>${esc(c.km)}</td></tr>
-          <tr><th>Cor</th><td>${esc(c.cor)}</td></tr>
-          <tr><th>Volante</th><td>${esc(c.volante)}</td></tr>
-          <tr><th>Nota de leilão</th><td>${esc(c.leilao)}</td></tr>
-          <tr><th>Disponível para</th><td>${elegivelBR(c)?"Paraguai e Brasil":"Paraguai"}</td></tr>
+        ${elegivelBR(c)?`<div class="br-note"><svg aria-hidden="true"><use href="#fl-br"/></svg><div>${LANG === "es" ? `<b>Paraguay y Brasil.</b> Con ${idade(c)} años de fabricación, este auto puede venderse e importarse a Paraguay o a Brasil, como vehículo de colección. Consultá las condiciones por WhatsApp.` : `<b>Paraguai e Brasil.</b> Com ${idade(c)} anos de fabricação, este carro pode ser vendido e importado para o Paraguai ou para o Brasil, como veículo de coleção. Consulte as condições pelo WhatsApp.`}</div></div>`:`<div class="br-note"><svg aria-hidden="true"><use href="#fl-py"/></svg><div>${LANG === "es" ? `<b>Disponible para Paraguay.</b> Venta e importación a Paraguay. Para Brasil, solo autos con más de 30 años de fabricación.` : `<b>Disponível para o Paraguai.</b> Venda e importação ao Paraguai. Para o Brasil, só carros com mais de 30 anos de fabricação.`}</div></div>`}
+        <table class="spec-table" aria-label="${T("Ficha técnica")}">
+          <tr><th>${T("Motor")}</th><td>${esc(S(c.motor))}</td></tr>
+          <tr><th>${T("Potência")}</th><td>${c.cv} cv</td></tr>
+          <tr><th>${T("Torque")}</th><td>${esc(c.torque)}</td></tr>
+          <tr><th>${T("0 a 100 km/h")}</th><td>${esc(c.zero100)}</td></tr>
+          <tr><th>${T("Câmbio")}</th><td>${esc(S(c.cambio))}</td></tr>
+          <tr><th>${T("Tração")}</th><td>${esc(S(c.tracao))}</td></tr>
+          <tr><th>${T("Peso")}</th><td>${esc(c.peso)}</td></tr>
+          <tr><th>${T("Quilometragem")}</th><td>${esc(c.km)}</td></tr>
+          <tr><th>${T("Cor")}</th><td>${esc(S(c.cor))}</td></tr>
+          <tr><th>${T("Volante")}</th><td>${esc(S(c.volante))}</td></tr>
+          <tr><th>${T("Nota de leilão")}</th><td>${esc(c.leilao)}</td></tr>
+          <tr><th>${T("Disponível para")}</th><td>${T(elegivelBR(c)?"Paraguai e Brasil":"Paraguai")}</td></tr>
         </table>
       </div>
     </div>
-    ${c.descricao?`<div class="d-section"><h3>Sobre este carro</h3><p class="desc">${esc(c.descricao)}</p></div>`:""}
-    <div class="d-section" ${c.destaques&&c.destaques.length?"":"hidden"}>
-      <h3>Destaques</h3>
-      <ul class="hl">${(c.destaques||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
+    ${desc(c)?`<div class="d-section"><h3>${T("Sobre este carro")}</h3><p class="desc">${esc(desc(c))}</p></div>`:""}
+    <div class="d-section" ${dest(c).length?"":"hidden"}>
+      <h3>${T("Destaques")}</h3>
+      <ul class="hl">${dest(c).map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
     </div>
   </div>`;
   d.hidden = false;
@@ -648,13 +784,13 @@ function renderVideos(){
   $("#vgrid").innerHTML = VIDEOS.map((v,i) => {
     const c = ESTOQUE.find(x=>x.id===v.carro) || {chassi:"JDM", corHex:"#00F028", marca:"", modelo:"", versao:"", fotos:[]};
     const externo = /^https?:/.test(v.url);
-    const tag = v.url ? "" : `<span class="tag">Em breve</span>`;
+    const tag = v.url ? "" : `<span class="tag">${T("Em breve")}</span>`;
     const capa = v.capa ? {url:v.capa} : (c.fotos||[])[0];
     const inner = `${art(c, capa)}${tag}<span class="play"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#000" d="M6 4l14 8-14 8z"/></svg></span>
-      <span class="meta"><b>${esc(v.titulo)}</b><span>${esc(v.tipo)} · ${esc(v.duracao)}</span></span>`;
+      <span class="meta"><b>${esc(titV(v))}</b><span>${esc(T(v.tipo))} · ${esc(v.duracao)}</span></span>`;
     return externo
       ? `<a class="vcard" href="${esc(v.url)}" target="_blank" rel="noopener" style="container-type:inline-size">${inner}</a>`
-      : `<button class="vcard" data-v="${i}" style="container-type:inline-size" aria-label="${esc(v.titulo)}">${inner}</button>`;
+      : `<button class="vcard" data-v="${i}" style="container-type:inline-size" aria-label="${esc(titV(v))}">${inner}</button>`;
   }).join("");
 }
 $("#vgrid").addEventListener("click", e => {
@@ -662,7 +798,7 @@ $("#vgrid").addEventListener("click", e => {
   const v = VIDEOS[+b.dataset.v];
   if (v.url) {
     const m = $("#vmodal");
-    m.innerHTML = `<div class="d-box" style="max-width:520px"><button class="d-close" aria-label="Fechar">×</button><video src="${esc(v.url)}" controls playsinline autoplay></video></div>`;
+    m.innerHTML = `<div class="d-box" style="max-width:520px"><button class="d-close" aria-label="${T("Fechar")}">×</button><video src="${esc(v.url)}" controls playsinline autoplay></video></div>`;
     m.hidden = false; document.body.style.overflow = "hidden";
   } else {
     const c = ESTOQUE.find(x=>x.id===v.carro);
@@ -676,12 +812,13 @@ $("#vmodal").addEventListener("click", e => {
 /* Encomenda → WhatsApp */
 function atualizaEncomenda(){
   const v = id => $(id).value.trim();
-  const linhas = ["Olá, Spec Imports! Quero encomendar um carro."];
+  const es = LANG === "es";
+  const linhas = [es ? "¡Hola, Spec Imports! Quiero encargar un auto." : "Olá, Spec Imports! Quero encomendar um carro."];
   if (v("#enc-modelo")) linhas.push(`Modelo: ${v("#enc-modelo")}`);
-  if (v("#enc-ano")) linhas.push(`Ano: ${v("#enc-ano")}`);
-  if (v("#enc-orc")) { const n = +v("#enc-orc").replace(/\D/g,""); linhas.push(`Orçamento: ${n?fUSD(n):v("#enc-orc")}`); }
-  if (v("#enc-nome")) linhas.push(`Nome: ${v("#enc-nome")}`);
-  if (v("#enc-cidade")) linhas.push(`Cidade: ${v("#enc-cidade")}`);
+  if (v("#enc-ano")) linhas.push(`${es?"Año":"Ano"}: ${v("#enc-ano")}`);
+  if (v("#enc-orc")) { const n = +v("#enc-orc").replace(/\D/g,""); linhas.push(`${es?"Presupuesto":"Orçamento"}: ${n?fUSD(n):v("#enc-orc")}`); }
+  if (v("#enc-nome")) linhas.push(`${es?"Nombre":"Nome"}: ${v("#enc-nome")}`);
+  if (v("#enc-cidade")) linhas.push(`${es?"Ciudad":"Cidade"}: ${v("#enc-cidade")}`);
   $("#enc-wa").href = waLink(linhas.join("\n"));
 }
 $("#form-enc").addEventListener("input", atualizaEncomenda);
@@ -705,21 +842,21 @@ function renderHero(){
   const c = ESTOQUE.filter(x=>x.status==="disponivel").sort((a,b)=>a.destaque-b.destaque)[0]; if (!c) return;
   const el = $("#hero-car");
   el.href = "#carro-" + c.id;
-  el.setAttribute("aria-label", "Destaque: " + nome(c) + " " + c.ano);
-  el.innerHTML = `<div class="media">${art(c, (c.fotos||[])[0])}<span class="tagline">Destaque do estoque</span></div>
+  el.setAttribute("aria-label", T("Destaque") + ": " + nome(c) + " " + c.ano);
+  el.innerHTML = `<div class="media">${art(c, (c.fotos||[])[0])}<span class="tagline">${T("Destaque do estoque")}</span></div>
     <div class="info">
       <div><div class="mk">${esc(c.marca)} · ${esc(c.chassi)} · ${c.ano}</div><h3 style="font-size:1.35rem;margin-top:6px">${esc(c.modelo)} <span class="g">${esc(c.versao)}</span></h3></div>
       <div style="text-align:right"><div class="usd"><small>US$</small>${c.preco.toLocaleString("pt-BR")}</div><div class="conv">≈ ${fBRL(c.preco*CONFIG.brl)} · ≈ ${fPYG(c.preco*CONFIG.pyg)}</div></div>
     </div>`;
 }
-$("#grid").innerHTML = `<div class="empty">Carregando estoque…</div>`;
+$("#grid").innerHTML = `<div class="empty">${T("Carregando estoque…")}</div>`;
 fetch("/api/site").then(r => { if (!r.ok) throw new Error(); return r.json(); }).then(d => {
   CONFIG = {...CONFIG, ...d.config, anoAtual: new Date().getFullYear()};
   ESTOQUE = d.carros || []; VIDEOS = (d.videos || []).sort((a,b)=>(a.ordem||99)-(b.ordem||99));
   aplicarConfig(); render(); renderHero(); renderVideos(); atualizaEncomenda(); rota();
   if (!VIDEOS.length) document.getElementById("videos").hidden = true;
 }).catch(() => {
-  $("#grid").innerHTML = `<div class="empty">Não consegui carregar o estoque agora. Atualize a página ou chame a gente no WhatsApp.</div>`;
+  $("#grid").innerHTML = `<div class="empty">${T("Não consegui carregar o estoque agora. Atualize a página ou chame a gente no WhatsApp.")}</div>`;
   aplicarConfig(); atualizaEncomenda();
 });
 </script>

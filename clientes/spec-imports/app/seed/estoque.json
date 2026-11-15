@@ -42,7 +42,14 @@
      "creditoLink": "https://commons.wikimedia.org/wiki/File:1999_Nissan_Skyline_GT-R_V-Spec_BS_J26.jpg"
     }
    ],
-   "descricao": "R34 V-Spec em Bayside Blue, a cor mais procurada do modelo. Motor RB26DETT original, câmbio Getrag de 6 marchas e tração integral ATTESA E-TS Pro. Carro de colecionador, com histórico de manutenção no Japão."
+   "descricao": "R34 V-Spec em Bayside Blue, a cor mais procurada do modelo. Motor RB26DETT original, câmbio Getrag de 6 marchas e tração integral ATTESA E-TS Pro. Carro de colecionador, com histórico de manutenção no Japão.",
+   "descricaoEs": "R34 V-Spec en Bayside Blue, el color más buscado del modelo. Motor RB26DETT original, caja Getrag de 6 velocidades y tracción integral ATTESA E-TS Pro. Auto de coleccionista, con historial de mantenimiento en Japón.",
+   "destaquesEs": [
+    "Color Bayside Blue original de fábrica",
+    "Diferencial trasero activo (V-Spec)",
+    "Llantas BBS originales 18\"",
+    "Historial de mantenimiento en Japón"
+   ]
   },
   {
    "id": "supra-rz-1995",
@@ -81,7 +88,14 @@
      "creditoLink": "https://commons.wikimedia.org/wiki/File:Toyota_Supra_RZ_(JZA80)_front.JPG"
     }
    ],
-   "descricao": "Supra RZ com o lendário 2JZ-GTE biturbo e câmbio V160 de 6 marchas. Com mais de 30 anos de fabricação, pode ser vendido e importado tanto para o Paraguai quanto para o Brasil."
+   "descricao": "Supra RZ com o lendário 2JZ-GTE biturbo e câmbio V160 de 6 marchas. Com mais de 30 anos de fabricação, pode ser vendido e importado tanto para o Paraguai quanto para o Brasil.",
+   "descricaoEs": "Supra RZ con el legendario 2JZ-GTE biturbo y caja V160 de 6 velocidades. Con más de 30 años de fabricación, puede venderse e importarse tanto a Paraguay como a Brasil.",
+   "destaquesEs": [
+    "Bloque 2JZ resistente, muy buscado para preparación",
+    "Caja V160, la más deseada del MK4",
+    "Techo targa",
+    "Apto para importación a Brasil (30+ años)"
+   ]
   },
   {
    "id": "rx7-typers-1999",
@@ -125,7 +139,14 @@
      "creditoLink": "https://commons.wikimedia.org/wiki/File:Mazda_RX-7_FD3S,_rear_right,_05-05-2024.jpg"
     }
    ],
-   "descricao": "RX-7 Type RS da série 6, a última e mais refinada do FD3S. Motor rotativo 13B-REW biturbo com compressão medida antes do embarque."
+   "descricao": "RX-7 Type RS da série 6, a última e mais refinada do FD3S. Motor rotativo 13B-REW biturbo com compressão medida antes do embarque.",
+   "descricaoEs": "RX-7 Type RS de la serie 6, la última y más refinada del FD3S. Motor rotativo 13B-REW biturbo con compresión medida antes del embarque.",
+   "destaquesEs": [
+    "Serie 6, la última y más refinada",
+    "Motor rotativo con compresión medida",
+    "Suspensión Bilstein de fábrica",
+    "Interior conservado"
+   ]
   },
   {
    "id": "nsx-na1-1991",
@@ -173,7 +194,14 @@
      "creditoLink": "https://commons.wikimedia.org/wiki/File:Honda_E-NA1_NSX_(24052611222).jpg"
     }
    ],
-   "descricao": "NSX NA1 com carroceria em alumínio e V6 VTEC de 3.0 litros. Clássico com mais de 30 anos, elegível para venda e importação ao Brasil."
+   "descricao": "NSX NA1 com carroceria em alumínio e V6 VTEC de 3.0 litros. Clássico com mais de 30 anos, elegível para venda e importação ao Brasil.",
+   "descricaoEs": "NSX NA1 con carrocería de aluminio y V6 VTEC de 3.0 litros. Clásico con más de 30 años, apto para venta e importación a Brasil.",
+   "destaquesEs": [
+    "Carrocería de aluminio",
+    "Puesta a punto del chasis con participación de Ayrton Senna",
+    "Faros escamoteables",
+    "Apto para importación a Brasil (30+ años)"
+   ]
   },
   {
    "id": "r32-gtr-1993",
@@ -217,7 +245,14 @@
      "creditoLink": "https://commons.wikimedia.org/wiki/File:Nissan_Skyline_R32_GT-R_E-BNR32_Crystal_White_(2).jpg"
     }
    ],
-   "descricao": "O GT-R R32 que deu origem ao apelido Godzilla. RB26DETT, tração integral e mais de 30 anos de fabricação: pode ir para o Paraguai ou para o Brasil."
+   "descricao": "O GT-R R32 que deu origem ao apelido Godzilla. RB26DETT, tração integral e mais de 30 anos de fabricação: pode ir para o Paraguai ou para o Brasil.",
+   "descricaoEs": "El GT-R R32 que dio origen al apodo Godzilla. RB26DETT, tracción integral y más de 30 años de fabricación: puede ir a Paraguay o a Brasil.",
+   "destaquesEs": [
+    "El \"Godzilla\" original",
+    "Turbos revisados",
+    "Apto para importación a Brasil (30+ años)",
+    "Escape HKS"
+   ]
   },
   {
    "id": "evo6-tme-2000",
@@ -256,7 +291,14 @@
      "creditoLink": "https://commons.wikimedia.org/wiki/File:2000_Mitsubishi_Lancer_RS_Evolution_VI_Tommi_Makinen_Edition.jpg"
     }
    ],
-   "descricao": "Lancer Evolution VI Tommi Mäkinen Edition, homenagem ao tetracampeão do WRC. Turbina de titânio-alumínio e rodas Enkei de 17 polegadas."
+   "descricao": "Lancer Evolution VI Tommi Mäkinen Edition, homenagem ao tetracampeão do WRC. Turbina de titânio-alumínio e rodas Enkei de 17 polegadas.",
+   "descricaoEs": "Lancer Evolution VI Tommi Mäkinen Edition, homenaje al tetracampeón del WRC. Turbo de titanio-aluminio y llantas Enkei de 17 pulgadas.",
+   "destaquesEs": [
+    "Edición homenaje al tetracampeón del WRC",
+    "Turbo de titanio-aluminio",
+    "Llantas Enkei 17\" blancas",
+    "Llega en pocas semanas"
+   ]
   },
   {
    "id": "s15-specr-2001",
@@ -293,7 +335,13 @@
      "creditoLink": "https://commons.wikimedia.org/wiki/File:Nissan_Silvia_Spec_R_b_package_(GF-S15).jpg"
     }
    ],
-   "descricao": "Silvia S15 Spec-R com SR20DET e câmbio de 6 marchas. Um dos carros mais desejados da cultura drift."
+   "descricao": "Silvia S15 Spec-R com SR20DET e câmbio de 6 marchas. Um dos carros mais desejados da cultura drift.",
+   "descricaoEs": "Silvia S15 Spec-R con SR20DET y caja de 6 velocidades. Uno de los autos más deseados de la cultura drift.",
+   "destaquesEs": [
+    "Ícono del drift",
+    "Diferencial helicoidal de fábrica",
+    "Asientos originales en buen estado"
+   ]
   },
   {
    "id": "ek9-typer-1998",
@@ -335,7 +383,13 @@
      "creditoLink": "https://commons.wikimedia.org/wiki/File:Honda_CIVIC_TYPE_R_(EK9)_right_(2).JPG"
     }
    ],
-   "descricao": "O primeiro Civic Type R. Motor B16B de 1.6 litro com corte a 8.400 rpm e diferencial de deslizamento limitado."
+   "descricao": "O primeiro Civic Type R. Motor B16B de 1.6 litro com corte a 8.400 rpm e diferencial de deslizamento limitado.",
+   "descricaoEs": "El primer Civic Type R. Motor B16B de 1.6 litros con corte a 8.400 rpm y diferencial de deslizamiento limitado.",
+   "destaquesEs": [
+    "Primer Civic Type R de la historia",
+    "Corte a 8.400 rpm",
+    "Asientos Recaro rojos originales"
+   ]
   },
   {
    "id": "z32-twinturbo-1990",
@@ -377,7 +431,13 @@
      "creditoLink": "https://commons.wikimedia.org/wiki/File:Nissan_300ZX_Turbo_(1990)_(53686112515).jpg"
     }
    ],
-   "descricao": "Fairlady Z 300ZX Twin Turbo, primeiro carro japonês com 280 cv de fábrica. Teto T-top. Elegível para venda e importação ao Brasil."
+   "descricao": "Fairlady Z 300ZX Twin Turbo, primeiro carro japonês com 280 cv de fábrica. Teto T-top. Elegível para venda e importação ao Brasil.",
+   "descricaoEs": "Fairlady Z 300ZX Twin Turbo, el primer auto japonés con 280 cv de fábrica. Techo T-top. Apto para venta e importación a Brasil.",
+   "destaquesEs": [
+    "Primer auto japonés con 280 cv de fábrica",
+    "Techo T-top",
+    "Apto para importación a Brasil (30+ años)"
+   ]
   },
   {
    "id": "ae86-trueno-1986",
@@ -424,7 +484,13 @@
      "creditoLink": "https://commons.wikimedia.org/wiki/File:Toyota_SPRINTER_TRUENO_3door_(AE86)_front.JPG"
     }
    ],
-   "descricao": "Sprinter Trueno GT-Apex AE86 na clássica pintura panda. Motor 4A-GE de 16 válvulas e tração traseira. Elegível para venda e importação ao Brasil."
+   "descricao": "Sprinter Trueno GT-Apex AE86 na clássica pintura panda. Motor 4A-GE de 16 válvulas e tração traseira. Elegível para venda e importação ao Brasil.",
+   "descricaoEs": "Sprinter Trueno GT-Apex AE86 en la clásica pintura panda. Motor 4A-GE de 16 válvulas y tracción trasera. Apto para venta e importación a Brasil.",
+   "destaquesEs": [
+    "El \"Hachiroku\" de las montañas",
+    "Faros escamoteables",
+    "Apto para importación a Brasil (30+ años)"
+   ]
   }
  ],
  "videos": [
@@ -436,7 +502,8 @@
    "duracao": "0:48",
    "url": "",
    "capa": "",
-   "ordem": 1
+   "ordem": 1,
+   "tituloEs": "R34 V-Spec: arranque en frío y sonido"
   },
   {
    "id": "v2",
@@ -446,7 +513,8 @@
    "duracao": "1:12",
    "url": "",
    "capa": "",
-   "ordem": 2
+   "ordem": 2,
+   "tituloEs": "Supra MK4: walkaround completo"
   },
   {
    "id": "v3",
@@ -456,7 +524,8 @@
    "duracao": "0:59",
    "url": "",
    "capa": "",
-   "ordem": 3
+   "ordem": 3,
+   "tituloEs": "NSX en la ruta: prueba de manejo"
   },
   {
    "id": "v4",
@@ -466,7 +535,8 @@
    "duracao": "0:35",
    "url": "",
    "capa": "",
-   "ordem": 4
+   "ordem": 4,
+   "tituloEs": "AE86 Trueno: de costado en la sierra"
   },
   {
    "id": "v5",
@@ -476,7 +546,8 @@
    "duracao": "0:41",
    "url": "",
    "capa": "",
-   "ordem": 5
+   "ordem": 5,
+   "tituloEs": "RX-7 FD: entrega al cliente"
   }
  ],
  "config": {}
