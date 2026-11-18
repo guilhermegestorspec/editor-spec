@@ -158,6 +158,14 @@ app.use((req, res, next) => {
 
 app.get("/healthz", (req, res) => res.send("ok"));
 
+// Domínio principal: com CANONICAL_HOST definido, outros endereços (onrender.com, www) redirecionam para ele.
+const CANONICAL_HOST = (process.env.CANONICAL_HOST || "").trim().toLowerCase();
+app.use((req, res, next) => {
+  const host = (req.headers.host || "").toLowerCase().split(":")[0];
+  if (CANONICAL_HOST && host && host !== CANONICAL_HOST && req.method === "GET") return res.redirect(301, `https://${CANONICAL_HOST}${req.originalUrl}`);
+  next();
+});
+
 app.get("/api/site", (req, res) => {
   res.set("Cache-Control", "no-store");
   res.json({ config: { ...CONFIG_PADRAO, ...getCfg("site", {}) }, carros: listar("carros"), videos: listar("videos") });
