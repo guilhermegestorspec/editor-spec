@@ -130,7 +130,7 @@ legend{padding:0 8px;font-weight:700;font-size:.82rem;text-transform:uppercase;l
     <section data-pane="videos" hidden>
       <div id="vid-editor"></div>
       <div class="bar">
-        <span class="conv">Vídeos aparecem na seção "Ronco, walkaround e entrega" do site, em formato vertical (Reels).</span>
+        <span class="conv">Vídeos aparecem na seção "Ronco, detalhes e entrega" do site, em formato vertical (Reels).</span>
         <button class="btn pri" id="vid-novo">+ Adicionar vídeo</button>
       </div>
       <div class="list" id="vid-list"></div>
@@ -363,7 +363,7 @@ function editorVideo(v){
       <label for="v-titulo" class="wide">Título<input id="v-titulo" value="${esc(v.titulo||"")}" placeholder="Ex.: R34 V-Spec: partida a frio e ronco"></label>
       <label for="v-tituloEs" class="wide">Título em espanhol (opcional)<input id="v-tituloEs" value="${esc(v.tituloEs||"")}" placeholder="Ej.: R34 V-Spec: arranque en frío y sonido"></label>
       <label for="v-carro">Carro<select id="v-carro"><option value="">— nenhum —</option>${DATA.carros.map(c => `<option value="${esc(c.id)}" ${v.carro===c.id?"selected":""}>${esc(c.modelo+" "+c.versao+" "+c.ano)}</option>`).join("")}</select></label>
-      <label for="v-tipo">Tipo<input id="v-tipo" value="${esc(v.tipo||"")}" placeholder="Ronco, Walkaround, Entrega…"></label>
+      <label for="v-tipo">Tipo<input id="v-tipo" value="${esc(v.tipo||"")}" placeholder="Ronco, Detalhes, Entrega…"></label>
       <label for="v-duracao">Duração<input id="v-duracao" value="${esc(v.duracao||"")}" placeholder="0:45"></label>
       <label for="v-ordem">Posição<input id="v-ordem" inputmode="numeric" value="${esc(v.ordem||"")}"></label>
       <label for="v-url" class="wide">Link do vídeo (YouTube, Instagram, TikTok) ou envie o arquivo abaixo<input id="v-url" value="${esc(v.url||"")}" placeholder="https://www.instagram.com/reel/…"></label>
