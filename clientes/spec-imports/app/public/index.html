@@ -371,7 +371,7 @@ footer img{height:40px;width:auto}
       <div class="step"><div class="n">01</div><h3>Escolha</h3><p>Você escolhe no estoque ou pede um modelo específico. A Spec procura para você.</p></div>
       <div class="step"><div class="n">02</div><h3>Inspeção</h3><p>Avaliação do carro, com fotos e vídeo antes de fechar.</p></div>
       <div class="step"><div class="n">03</div><h3>Transporte</h3><p>Transporte até o Paraguai. Você acompanha cada etapa pelo WhatsApp.</p></div>
-      <div class="step"><div class="n">04</div><h3>Documentação</h3><p>Documentação no Paraguai. Brasileiro sem documento paraguaio? Indicamos um parceiro que cuida de tudo. Para o Brasil, carros com mais de 30 anos.</p></div>
+      <div class="step"><div class="n">04</div><h3>Documentação</h3><p>Brasileiro sem documento paraguaio? É um processo separado da compra: indicamos um parceiro que faz sua documentação pessoal. Para o Brasil, carros com mais de 30 anos.</p></div>
       <div class="step"><div class="n">05</div><h3>Entrega</h3><p>Carro revisado, lavado e com vídeo da entrega. A chave é sua.</p></div>
     </div>
     <div class="pillars">
@@ -396,7 +396,7 @@ footer img{height:40px;width:auto}
       <svg class="fl" aria-hidden="true"><use href="#fl-br"/></svg>
       <div>
         <h3>Brasileiro e ainda não tem documentação no Paraguai?</h3>
-        <p>A Spec indica um parceiro de confiança que cuida de toda a documentação para você comprar no Paraguai e ter o carro 100% legalizado no seu nome.</p>
+        <p>A documentação paraguaia é um processo separado da compra: a Spec vende o carro e indica um parceiro que faz a sua documentação pessoal. Assim o carro fica no seu nome e você roda legalmente no Brasil, seguindo as regras dos dois países, principalmente as brasileiras para veículos estrangeiros.</p>
       </div>
       <a class="btn btn-green" id="wa-doc" href="#" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#ic-wa"/></svg>Quero a indicação</a>
     </div>
@@ -499,7 +499,7 @@ const ES = {
   "Escolha": "Elección", "Você escolhe no estoque ou pede um modelo específico. A Spec procura para você.": "Elegís del stock o pedís un modelo específico. Spec lo busca por vos.",
   "Inspeção": "Inspección", "Avaliação do carro, com fotos e vídeo antes de fechar.": "Evaluación del auto, con fotos y video antes de cerrar.",
   "Transporte": "Transporte", "Transporte até o Paraguai. Você acompanha cada etapa pelo WhatsApp.": "Transporte hasta Paraguay. Seguís cada etapa por WhatsApp.",
-  "Documentação": "Documentación", "Documentação no Paraguai. Brasileiro sem documento paraguaio? Indicamos um parceiro que cuida de tudo. Para o Brasil, carros com mais de 30 anos.": "Documentación en Paraguay. ¿Brasileño sin documentos paraguayos? Te recomendamos un socio que se encarga de todo. Para Brasil, autos con más de 30 años.",
+  "Documentação": "Documentación", "Brasileiro sem documento paraguaio? É um processo separado da compra: indicamos um parceiro que faz sua documentação pessoal. Para o Brasil, carros com mais de 30 anos.": "¿Brasileño sin documentos paraguayos? Es un proceso separado de la compra: te recomendamos un socio que hace tu documentación personal. Para Brasil, autos con más de 30 años.",
   "Entrega": "Entrega", "Carro revisado, lavado e com vídeo da entrega. A chave é sua.": "Auto revisado, lavado y con video de la entrega. La llave es tuya.",
   "Cada carro é avaliado antes da compra, com fotos e vídeo.": "Cada auto se evalúa antes de la compra, con fotos y video.",
   "Resposta rápida no WhatsApp e acompanhamento de cada etapa, até a entrega.": "Respuesta rápida por WhatsApp y seguimiento de cada etapa, hasta la entrega.",
@@ -527,7 +527,7 @@ const ES = {
   "Carros JDM japoneses à venda no Paraguai, e no Brasil com mais de 30 anos. Valores em dólar; conversões em real e guarani são referência e variam com o câmbio do dia.": "Autos JDM japoneses en venta en Paraguay, y en Brasil con más de 30 años. Valores en dólares; las conversiones a reales y guaraníes son referenciales y varían con la cotización del día.",
   "Área do administrador": "Área del administrador",
   "Brasileiro e ainda não tem documentação no Paraguai?": "¿Sos brasileño y todavía no tenés documentos en Paraguay?",
-  "A Spec indica um parceiro de confiança que cuida de toda a documentação para você comprar no Paraguai e ter o carro 100% legalizado no seu nome.": "Spec te recomienda un socio de confianza que se encarga de toda la documentación para que compres en Paraguay y tengas el auto 100% legalizado a tu nombre.",
+  "A documentação paraguaia é um processo separado da compra: a Spec vende o carro e indica um parceiro que faz a sua documentação pessoal. Assim o carro fica no seu nome e você roda legalmente no Brasil, seguindo as regras dos dois países, principalmente as brasileiras para veículos estrangeiros.": "La documentación paraguaya es un proceso separado de la compra: Spec vende el auto y te recomienda un socio que hace tu documentación personal. Así el auto queda a tu nombre y podés circular legalmente en Brasil, según las reglas de ambos países, principalmente las brasileñas para vehículos extranjeros.",
   "Quero a indicação": "Quiero la recomendación",
   "Quer o volante do lado esquerdo?": "¿Querés el volante del lado izquierdo?",
   "Indicamos um parceiro Spec que faz a troca completa. De US$ 2.000 a US$ 3.000, conforme o carro e o modelo, com prazo de 4 a 6 semanas.": "Te recomendamos un socio Spec que hace el cambio completo. De US$ 2.000 a US$ 3.000, según el auto y el modelo, con un plazo de 4 a 6 semanas.",
@@ -754,7 +754,7 @@ function abrirCarro(id){
         <div class="d-ctas">
           <a class="btn btn-green" href="${waCarro(c)}" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#ic-wa"/></svg>${T(vendido?"Quero um igual":"Tenho interesse neste carro")}</a>
         </div>
-        ${elegivelBR(c)?`<div class="br-note"><svg aria-hidden="true"><use href="#fl-br"/></svg><div>${LANG === "es" ? `<b>Paraguay y Brasil.</b> Con ${idade(c)} años de fabricación, este auto puede venderse e importarse a Paraguay o a Brasil, como vehículo de colección. Consultá las condiciones por WhatsApp.` : `<b>Paraguai e Brasil.</b> Com ${idade(c)} anos de fabricação, este carro pode ser vendido e importado para o Paraguai ou para o Brasil, como veículo de coleção. Consulte as condições pelo WhatsApp.`}</div></div>`:`<div class="br-note"><svg aria-hidden="true"><use href="#fl-py"/></svg><div>${LANG === "es" ? `<b>Disponible para Paraguay.</b> Venta en Paraguay. Para Brasil, solo autos con más de 30 años de fabricación. ¿Brasileño sin documentos paraguayos? Te recomendamos un socio que hace toda la documentación para que el auto quede 100% legalizado a tu nombre.` : `<b>Disponível para o Paraguai.</b> Venda no Paraguai. Para o Brasil, só carros com mais de 30 anos de fabricação. Brasileiro sem documentação no Paraguai? Indicamos um parceiro da Spec que faz toda a documentação para o carro ficar 100% legalizado no seu nome.`}</div></div>`}
+        ${elegivelBR(c)?`<div class="br-note"><svg aria-hidden="true"><use href="#fl-br"/></svg><div>${LANG === "es" ? `<b>Paraguay y Brasil.</b> Con ${idade(c)} años de fabricación, este auto puede venderse e importarse a Paraguay o a Brasil, como vehículo de colección. Consultá las condiciones por WhatsApp.` : `<b>Paraguai e Brasil.</b> Com ${idade(c)} anos de fabricação, este carro pode ser vendido e importado para o Paraguai ou para o Brasil, como veículo de coleção. Consulte as condições pelo WhatsApp.`}</div></div>`:`<div class="br-note"><svg aria-hidden="true"><use href="#fl-py"/></svg><div>${LANG === "es" ? `<b>Disponible para Paraguay.</b> Venta en Paraguay. Para Brasil, solo autos con más de 30 años de fabricación. ¿Brasileño sin documentos paraguayos? Es un proceso separado de la compra: te recomendamos un socio que hace tu documentación personal para que el auto quede a tu nombre y circule legalmente en Brasil.` : `<b>Disponível para o Paraguai.</b> Venda no Paraguai. Para o Brasil, só carros com mais de 30 anos de fabricação. Brasileiro sem documentação paraguaia? É um processo separado da compra: indicamos um parceiro que faz sua documentação pessoal para o carro ficar no seu nome e rodar legalmente no Brasil.`}</div></div>`}
         <table class="spec-table" aria-label="${T("Ficha técnica")}">
           <tr><th>${T("Motor")}</th><td>${esc(S(c.motor))}</td></tr>
           <tr><th>${T("Potência")}</th><td>${c.cv} cv</td></tr>
