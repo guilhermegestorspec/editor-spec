@@ -89,9 +89,9 @@ nav.main a:hover{color:var(--white)}
 .hero .shapes i:nth-child(1){right:-6%;top:-10%;width:46%;height:72%;background:linear-gradient(135deg,rgba(0,240,40,.16),rgba(0,240,40,0) 70%)}
 .hero .shapes i:nth-child(2){right:30%;bottom:-20%;width:18%;height:60%;border:1px solid rgba(0,240,40,.22)}
 .hero .shapes i:nth-child(3){right:-2%;bottom:0;width:30%;height:8px;background:var(--green)}
-.hero .wrap{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:40px 48px;align-items:center;padding-block:64px 80px}
-.hero h1{font-size:clamp(2.1rem,4.3vw,3.5rem);font-weight:900}
-.hero p.lead{font-size:clamp(1rem,1.5vw,1.15rem);color:var(--soft);max-width:48ch;margin:22px 0 30px}
+.hero .wrap{position:relative;display:grid;grid-template-columns:1fr 1.15fr;gap:32px 48px;align-items:center;padding-block:48px 56px}
+.hero h1{font-size:clamp(2.6rem,5.4vw,4.4rem);font-weight:900;line-height:.95}
+.hero p.lead{font-size:clamp(1rem,1.5vw,1.15rem);color:var(--soft);max-width:48ch;margin:18px 0 26px}
 .hero .ctas{display:flex;flex-wrap:wrap;gap:12px}
 .values{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;margin-top:44px;max-width:520px;border-top:1px solid var(--line)}
 .values div{padding:16px 14px 0 0;display:grid;gap:8px;font-size:.88rem;font-weight:600;color:var(--soft)}
@@ -195,8 +195,11 @@ nav.main a:hover{color:var(--white)}
 .pillars p{margin:0;color:var(--muted);font-size:.92rem}
 
 /* binacional */
-.doc{margin-top:22px;display:grid;grid-template-columns:auto 1fr auto;gap:18px 26px;align-items:center;background:var(--surface);border:1px solid var(--line-2);border-left:4px solid var(--green);padding:24px 26px}
+.doc{margin-top:22px;display:grid;grid-template-columns:54px 1fr auto;gap:18px 26px;align-items:center;background:var(--surface);border:1px solid var(--line-2);border-left:4px solid var(--green);padding:24px 26px}
 .doc svg.fl{width:54px;height:38px;border-radius:3px}
+.doc svg.ic{width:46px;height:46px;justify-self:center;stroke:var(--green);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.doc + .doc{margin-top:12px}
+.vol-note{display:block;font-size:.78rem;color:var(--muted);font-weight:500;margin-top:3px}
 .doc h3{font-size:clamp(1.05rem,2vw,1.35rem);font-weight:800;margin:0 0 6px}
 .doc p{margin:0;color:var(--soft);max-width:70ch}
 .doc .btn{white-space:nowrap}
@@ -300,31 +303,20 @@ footer img{height:40px;width:auto}
   <div class="shapes" aria-hidden="true"><i></i><i></i><i></i></div>
   <div class="wrap">
     <div>
-      <div class="eyebrow"><span class="slash">/</span>JDM japonês · Selecionados em Iquique, Chile</div>
-      <h1 style="margin-top:18px">O JDM que você quer, <span class="g">já na América do Sul.</span></h1>
-      <p class="lead">Carros japoneses selecionados em Iquique, no Chile, e vendidos no Paraguai, sem esperar navio do Japão. Os modelos com mais de 30 anos de fabricação também podem ser vendidos e importados para o Brasil.</p>
-      <div class="ctas">
-        <a class="btn btn-green" href="#estoque">Ver estoque</a>
-        <a class="btn btn-line" href="#encomenda">Encomendar meu carro</a>
-      </div>
-      <div class="values">
-        <div><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12l4 6-10 12L2 9z"/><path d="M2 9h20M12 21 8 9l4-6 4 6z"/></svg>Qualidade</div>
-        <div><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>Agilidade</div>
-        <div><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m11 17 2 2a1 1 0 1 0 3-3"/><path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.9-3.9a3 3 0 0 0-4.2 0l-.9.9a1 1 0 1 1-3-3l2.8-2.8a5 5 0 0 1 5.5-1l.5.2L21 6"/><path d="m21 3 1 11h-2M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3M3 4h8"/></svg>Confiança</div>
-      </div>
+      <h1>Carros JDM <span class="g">à venda.</span></h1>
+      <p class="lead">Japoneses selecionados em Iquique. Venda no Paraguai e, com 30+ anos, no Brasil.</p>
+      <div class="ctas"><a class="btn btn-green" href="#estoque">Ver estoque</a></div>
     </div>
     <a class="feature" id="hero-car" href="#estoque" aria-label="Carro em destaque"></a>
   </div>
 </section>
 
-<div class="ticker" aria-hidden="true"><div class="ticker-track" id="ticker"></div></div>
-
-<section class="sec" id="estoque">
+<section class="sec" id="estoque" style="padding-top:clamp(40px,6vw,72px)">
   <div class="wrap">
     <div class="sec-head">
       <div class="eyebrow"><span class="slash">/</span>Estoque</div>
       <h2>Carros <span class="g">disponíveis</span></h2>
-      <p>Preço em dólar, com a conversão para real e guarani logo abaixo. Abra o carro para ver ficha técnica, fotos e chamar no WhatsApp com o modelo já na mensagem.</p>
+      <p>Preço em dólar, com real e guarani logo abaixo.</p>
     </div>
     <div class="filters" role="group" aria-label="Filtros do estoque">
       <button class="chip" data-f="todos" aria-pressed="true">Todos</button>
@@ -409,6 +401,14 @@ footer img{height:40px;width:auto}
       </div>
       <a class="btn btn-green" id="wa-doc" href="#" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#ic-wa"/></svg>Quero a indicação</a>
     </div>
+    <div class="doc" id="volante">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><circle cx="12" cy="12" r="2.5"/><path d="M2.6 10.5h6.9M14.5 10.5h6.9M12 14.5v7"/></svg>
+      <div>
+        <h3>Quer o volante do lado esquerdo?</h3>
+        <p>Indicamos um parceiro Spec que faz a troca completa. De US$ 2.000 a US$ 3.000, conforme o carro e o modelo, com prazo de 4 a 6 semanas.</p>
+      </div>
+      <a class="btn btn-green" id="wa-volante" href="#" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#ic-wa"/></svg>Consultar troca</a>
+    </div>
   </div>
 </section>
 
@@ -421,7 +421,7 @@ footer img{height:40px;width:auto}
       <ul>
         <li>Skyline, Supra, RX-7, NSX, Evo, Impreza, Silvia, Civic Type R</li>
         <li>Para o Brasil: clássicos dos anos 80 e 90 com mais de 30 anos</li>
-        <li>Volante à direita, como saíram de fábrica no Japão</li>
+        <li>Volante à direita de fábrica, ou troca para a esquerda com parceiro Spec</li>
         <li>Brasileiro sem documentação no Paraguai: indicamos um parceiro para legalizar o carro no seu nome</li>
       </ul>
     </div>
@@ -476,15 +476,11 @@ const ES = {
   "Falar no WhatsApp": "Hablar por WhatsApp", "Seções": "Secciones", "Spec Imports, início": "Spec Imports, inicio",
   // hero
   "JDM japonês · Selecionados em Iquique, Chile": "JDM japonés · Seleccionados en Iquique, Chile",
-  "O JDM que você quer,": "El JDM que querés,", "já na América do Sul.": "ya en Sudamérica.",
-  "Carros japoneses selecionados em Iquique, no Chile, e vendidos no Paraguai, sem esperar navio do Japão. Os modelos com mais de 30 anos de fabricação também podem ser vendidos e importados para o Brasil.": "Autos japoneses seleccionados en Iquique, Chile, y vendidos en Paraguay, sin esperar el barco desde Japón. Los modelos con más de 30 años de fabricación también pueden venderse e importarse a Brasil.",
-  "Ver estoque": "Ver stock", "Encomendar meu carro": "Encargar mi auto",
+  "Carros JDM": "Autos JDM", "à venda.": "en venta.", "Japoneses selecionados em Iquique. Venda no Paraguai e, com 30+ anos, no Brasil.": "Japoneses seleccionados en Iquique. Venta en Paraguay y, con 30+ años, en Brasil.", "Ver estoque": "Ver stock", "Encomendar meu carro": "Encargar mi auto",
   "Qualidade": "Calidad", "Agilidade": "Agilidad", "Confiança": "Confianza", "Carro em destaque": "Auto destacado",
   // estoque
   "Carros": "Autos", "disponíveis": "disponibles",
-  "Preço em dólar, com a conversão para real e guarani logo abaixo. Abra o carro para ver ficha técnica, fotos e chamar no WhatsApp com o modelo já na mensagem.":
-    "Precio en dólares, con la conversión a reales y guaraníes justo debajo. Abrí el auto para ver la ficha técnica, las fotos y escribirnos por WhatsApp con el modelo ya en el mensaje.",
-  "Filtros do estoque": "Filtros del stock", "Todos": "Todos", "Vão para o Brasil (30+ anos)": "Van a Brasil (30+ años)",
+  "Preço em dólar, com real e guarani logo abaixo.": "Precio en dólares, con reales y guaraníes debajo.", "Filtros do estoque": "Filtros del stock", "Todos": "Todos", "Vão para o Brasil (30+ anos)": "Van a Brasil (30+ años)",
   "Até US$ 60 mil": "Hasta US$ 60 mil", "Só disponíveis": "Solo disponibles",
   "Buscar modelo, motor, chassi…": "Buscar modelo, motor, chasis…", "Buscar no estoque": "Buscar en el stock", "Ordenar": "Ordenar",
   "Destaques": "Destacados", "Menor preço": "Menor precio", "Maior preço": "Mayor precio",
@@ -522,8 +518,7 @@ const ES = {
   "Não achou": "¿No encontraste", "o seu?": "el tuyo?",
   "Diga o modelo, o ano e quanto quer investir. A Spec Imports procura entre os carros japoneses em Iquique e manda as opções com fotos, vídeo e preço final.": "Decinos el modelo, el año y cuánto querés invertir. Spec Imports lo busca entre los autos japoneses en Iquique y te envía las opciones con fotos, video y precio final.",
   "Para o Brasil: clássicos dos anos 80 e 90 com mais de 30 anos": "Para Brasil: clásicos de los años 80 y 90 con más de 30 años",
-  "Volante à direita, como saíram de fábrica no Japão": "Volante a la derecha, como salieron de fábrica en Japón",
-  "Brasileiro sem documentação no Paraguai: indicamos um parceiro para legalizar o carro no seu nome": "¿Brasileño sin documentos en Paraguay? Te recomendamos un socio para legalizar el auto a tu nombre",
+  "Volante à direita de fábrica, ou troca para a esquerda com parceiro Spec": "Volante a la derecha de fábrica, o cambio a la izquierda con socio Spec", "Brasileiro sem documentação no Paraguai: indicamos um parceiro para legalizar o carro no seu nome": "¿Brasileño sin documentos en Paraguay? Te recomendamos un socio para legalizar el auto a tu nombre",
   "Modelo desejado": "Modelo deseado", "Ano ou faixa": "Año o rango", "Orçamento (US$)": "Presupuesto (US$)",
   "Seu nome": "Tu nombre", "Cidade / estado": "Ciudad / departamento",
   "Ex.: Nissan Skyline GT-R R33": "Ej.: Nissan Skyline GT-R R33", "Ex.: 1995 a 1998": "Ej.: 1995 a 1998", "Ex.: 60000": "Ej.: 60000",
@@ -537,6 +532,9 @@ const ES = {
   "Brasileiro e ainda não tem documentação no Paraguai?": "¿Sos brasileño y todavía no tenés documentos en Paraguay?",
   "A Spec indica um parceiro de confiança que cuida de toda a documentação para você comprar no Paraguai e ter o carro 100% legalizado no seu nome.": "Spec te recomienda un socio de confianza que se encarga de toda la documentación para que compres en Paraguay y tengas el auto 100% legalizado a tu nombre.",
   "Quero a indicação": "Quiero la recomendación",
+  "Quer o volante do lado esquerdo?": "¿Querés el volante del lado izquierdo?",
+  "Indicamos um parceiro Spec que faz a troca completa. De US$ 2.000 a US$ 3.000, conforme o carro e o modelo, com prazo de 4 a 6 semanas.": "Te recomendamos un socio Spec que hace el cambio completo. De US$ 2.000 a US$ 3.000, según el auto y el modelo, con un plazo de 4 a 6 semanas.",
+  "Consultar troca": "Consultar cambio",
   // textos montados pelo script
   "Disponível": "Disponible", "Reservado": "Reservado", "Em trânsito": "En tránsito", "Vendido": "Vendido",
   "Japão": "Japón", "Elegível Brasil 30+": "Apto Brasil 30+", "Potência": "Potencia", "Ver ficha →": "Ver ficha →", "Ver": "Ver",
@@ -654,11 +652,12 @@ function aplicarConfig(){
 $("#rates").innerHTML = `US$ 1 = <b>R$ ${CONFIG.brl.toFixed(2).replace(".",",")}</b> · <b>₲ ${CONFIG.pyg.toLocaleString("es-PY")}</b> · ${CONFIG.cotacaoLink?`<a href="${esc(CONFIG.cotacaoLink)}" target="_blank" rel="noopener" style="color:inherit">${esc(CONFIG.cotacaoFonte)}</a>`:esc(CONFIG.cotacaoFonte)}${CONFIG.cotacaoData?", "+esc(CONFIG.cotacaoData):""}`;
 $("#ano").textContent = CONFIG.anoAtual;
 const codes = [...new Set(ESTOQUE.map(c=>c.chassi).concat(["JZA80","BNR32","FD3S","AE86","EK9","DC2","GC8","Z33"]))];
-$("#ticker").innerHTML = [...codes, ...codes].map(c=>`<span>${esc(c)}</span>`).join("");
+const tk = $("#ticker"); if (tk) tk.innerHTML = [...codes, ...codes].map(c=>`<span>${esc(c)}</span>`).join("");
 
 /* WhatsApp geral */
   const msgGeral = waLink(LANG === "es" ? "¡Hola, Spec Imports! Vi el sitio web y quiero saber más sobre los autos en stock." : "Olá, Spec Imports! Vi o site e quero saber mais sobre os carros do estoque.");
 $("#wa-top").href = msgGeral; $("#wa-float").href = msgGeral;
+  $("#wa-volante").href = waLink(LANG === "es" ? "¡Hola, Spec Imports! Quiero saber sobre el cambio del volante al lado izquierdo con su socio." : "Olá, Spec Imports! Quero saber sobre a troca do volante para o lado esquerdo com o parceiro de vocês.");
   $("#wa-doc").href = waLink(LANG === "es" ? "¡Hola, Spec Imports! Soy brasileño, quiero comprar un auto en Paraguay y todavía no tengo documentos paraguayos. ¿Me pueden recomendar a su socio para la documentación?" : "Olá, Spec Imports! Sou brasileiro, quero comprar um carro no Paraguai e ainda não tenho documentação paraguaia. Podem me indicar o parceiro de vocês para a documentação?");
 }
 
@@ -769,7 +768,7 @@ function abrirCarro(id){
           <tr><th>${T("Peso")}</th><td>${esc(c.peso)}</td></tr>
           <tr><th>${T("Quilometragem")}</th><td>${esc(c.km)}</td></tr>
           <tr><th>${T("Cor")}</th><td>${esc(S(c.cor))}</td></tr>
-          <tr><th>${T("Volante")}</th><td>${esc(S(c.volante))}</td></tr>
+          <tr><th>${T("Volante")}</th><td>${esc(S(c.volante))}${/direit/i.test(c.volante||"")?`<span class="vol-note">${LANG==="es"?"Cambio al lado izquierdo con socio Spec: US$ 2.000 a 3.000, de 4 a 6 semanas.":"Troca para o lado esquerdo com parceiro Spec: US$ 2.000 a 3.000, de 4 a 6 semanas."}</span>`:""}</td></tr>
           ${c.leilao?`<tr><th>${T("Nota de leilão")}</th><td>${esc(c.leilao)}</td></tr>`:""}
           <tr><th>${T("Disponível para")}</th><td>${T(elegivelBR(c)?"Paraguai e Brasil":"Paraguai")}</td></tr>
         </table>
