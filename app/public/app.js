@@ -1189,6 +1189,109 @@ async function ligarBotaoNotificacoes(raizEl, { sempre = false } = {}) {
   pintar().catch(() => {});
 }
 
+// ---------- downloads no celular ----------
+// No iPhone (principalmente com o app instalado) abrir um link de download troca a tela inteira pela prévia do arquivo,
+// sem botão de voltar. Aqui o arquivo é baixado dentro do app e entregue pela folha de compartilhar do sistema
+// ("Salvar vídeo", WhatsApp, Arquivos…), e o Spec Studio continua aberto.
+const LIMITE_BLOB = 400 * 1024 * 1024;
+
+function nomeDoCabecalho(cd, padrao) {
+  const m = /filename\*=UTF-8''([^;]+)/i.exec(cd || "") || /filename="?([^";]+)"?/i.exec(cd || "");
+  try {
+    return m ? decodeURIComponent(m[1]) : padrao;
+  } catch {
+    return m ? m[1] : padrao;
+  }
+}
+
+async function baixarNoCelular(url) {
+  const d = modal(
+    "Baixar arquivo",
+    `<p id="bx-status">Preparando o arquivo…</p>
+     <div class="barra-progresso"><i id="bx-barra"></i></div>
+     <div class="acoes" id="bx-acoes"></div>`
+  );
+  const status = d.querySelector("#bx-status");
+  const barra = d.querySelector("#bx-barra");
+  const acoes = d.querySelector("#bx-acoes");
+  const abrirFora = () => {
+    acoes.insertAdjacentHTML("beforeend", `<button class="btn" id="bx-fora">Abrir em nova janela</button>`);
+    d.querySelector("#bx-fora").onclick = () => (window.open(url, "_blank", "noopener"), d.close());
+  };
+  const ctrl = new AbortController();
+  d.addEventListener("close", () => ctrl.abort());
+  try {
+    const r = await fetch(url, { signal: ctrl.signal, credentials: "same-origin" });
+    if (!r.ok) throw new Error(`Erro ${r.status}`);
+    const total = Number(r.headers.get("content-length")) || 0;
+    const nome = nomeDoCabecalho(r.headers.get("content-disposition"), "arquivo");
+    if (total > LIMITE_BLOB) {
+      ctrl.abort();
+      status.textContent = `${nome} tem ${tamanho(total)}: grande demais para baixar dentro do app. Abra em nova janela (toque em OK para voltar ao Spec Studio depois).`;
+      return abrirFora();
+    }
+    const partes = [];
+    let recebido = 0;
+    const leitor = r.body.getReader();
+    for (;;) {
+      const { done, value } = await leitor.read();
+      if (done) break;
+      partes.push(value);
+      recebido += value.length;
+      if (total) barra.style.width = `${Math.round((recebido / total) * 100)}%`;
+      status.textContent = `Baixando ${nome}… ${tamanho(recebido)}${total ? ` de ${tamanho(total)}` : ""}`;
+    }
+    const tipo = r.headers.get("content-type")?.split(";")[0] || "application/octet-stream";
+    const arquivo = new File(partes, nome, { type: tipo });
+    barra.style.width = "100%";
+    status.textContent = `${nome} pronto (${tamanho(arquivo.size)}).`;
+    if (navigator.canShare?.({ files: [arquivo] })) {
+      // o compartilhar precisa de um toque novo da pessoa (exigência do iPhone)
+      acoes.insertAdjacentHTML("beforeend", `<button class="btn primario" id="bx-salvar">${ic.baixar} Salvar no celular</button>`);
+      d.querySelector("#bx-salvar").onclick = async () => {
+        try {
+          await navigator.share({ files: [arquivo] });
+          d.close();
+        } catch (e) {
+          if (e.name !== "AbortError") toast("Não foi possível compartilhar: " + e.message, true);
+        }
+      };
+      status.textContent += " Toque em “Salvar no celular” e escolha Salvar vídeo, Arquivos ou o WhatsApp.";
+    } else {
+      const obj = URL.createObjectURL(arquivo);
+      const a = document.createElement("a");
+      a.href = obj;
+      a.download = nome;
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(obj), 60e3);
+      status.textContent = `${nome} baixado. Veja na pasta de downloads.`;
+      acoes.insertAdjacentHTML("beforeend", `<button class="btn primario" data-fechar2>OK</button>`);
+      d.querySelector("[data-fechar2]").onclick = () => d.close();
+    }
+  } catch (e) {
+    if (e.name === "AbortError") return;
+    status.textContent = `Não foi possível baixar aqui (${e.message}).`;
+    abrirFora();
+  }
+}
+
+const celularOuApp = () => ehIOS() || instalado();
+document.addEventListener(
+  "click",
+  (e) => {
+    const a = e.target.closest?.("a[href]");
+    if (!a || !celularOuApp()) return;
+    const url = new URL(a.getAttribute("href"), location.origin);
+    if (url.origin !== location.origin || !/^\/api\/arquivos\/\d+\/conteudo$/.test(url.pathname)) return;
+    e.preventDefault();
+    if (url.searchParams.get("baixar") === "1") baixarNoCelular(url.pathname + url.search);
+    else window.open(url.pathname + url.search, "_blank", "noopener"); // visualizar sem sair do app
+  },
+  true
+);
+
 // ---------- tarefas ----------
 function resumoTarefa(t) {
   const p = JSON.parse(t.params || "{}");
